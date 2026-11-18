@@ -1,0 +1,14 @@
+# Streamlit settings for the Image Noise Lab (frontend/app.py).
+# Streamlit reads this file when the app is started from the project root:
+#     python -m streamlit run frontend/app.py
+# (The 20 MB upload limit is set in the code itself, so it works from any folder.)
+
+[server]
+# Only this computer can open the app. Without this line Streamlit listens on
+# every network connection (other devices on the same Wi-Fi could open it)
+# and looks up this computer's public IP address on the internet.
+address = "localhost"
+
+[browser]
+# Do not send anonymous usage statistics to Streamlit.
+gatherUsageStats = false

@@ -1,0 +1,8 @@
+# Versions verified in this project's .venv on 2026-11-16 (Python 3.12.10).
+opencv-python==5.0.0.93
+numpy==2.5.5
+matplotlib==3.11.2
+# Web interface (Stage 5), added and verified in .venv on 2026-11-17.
+# It brings its own dependencies (e.g. pandas, pyarrow, altair); none of the
+# packages above changed version when it was installed.
+streamlit==1.67.0
