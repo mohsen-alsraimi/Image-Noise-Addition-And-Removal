@@ -24,7 +24,9 @@ from filter import (
 )
 
 
+# --------------------------------------------------
 # 1. PROJECT SETTINGS
+# --------------------------------------------------
 
 DATASET_PATH = Path("dataset/BSD68")
 RESULTS_PATH = Path("results")
@@ -53,7 +55,9 @@ NOISE_LEVELS = {
 }
 
 
+# --------------------------------------------------
 # 2. LOAD DATASET
+# --------------------------------------------------
 
 def load_dataset():
     images = []
@@ -84,7 +88,9 @@ def load_dataset():
     return images
 
 
+# --------------------------------------------------
 # 3. NOISE GENERATION
+# --------------------------------------------------
 
 def generate_noisy_image(image, noise_type, noise_level, seed):
 
@@ -98,7 +104,9 @@ def generate_noisy_image(image, noise_type, noise_level, seed):
         return add_speckle_noise(image, noise_level, seed)
 
 
+# --------------------------------------------------
 # 4. EVALUATION
+# --------------------------------------------------
 
 def calculate_metrics(original_image, processed_image):
 
@@ -117,7 +125,9 @@ def calculate_metrics(original_image, processed_image):
     return psnr, ssim
 
 
+# --------------------------------------------------
 # 5. FILTERS
+# --------------------------------------------------
 
 filters = {
     "Gaussian Filter": apply_gaussian_filter,
@@ -128,7 +138,9 @@ filters = {
 }
 
 
+# --------------------------------------------------
 # 6. RUN EXPERIMENTS
+# --------------------------------------------------
 
 def run_experiments(images):
 
@@ -206,7 +218,9 @@ def run_experiments(images):
     return pd.DataFrame(results)
 
 
+# --------------------------------------------------
 # 7. SAVE RESULTS
+# --------------------------------------------------
 
 def save_results(results):
 
@@ -235,7 +249,9 @@ def save_results(results):
     print("\nResults saved successfully.")
 
 
+# --------------------------------------------------
 # 8. CREATE GRAPHS
+# --------------------------------------------------
 
 def create_graphs(results):
 
@@ -262,32 +278,67 @@ def create_graphs(results):
                 ["Noise_Level", "Filter"]
             )[metric].mean().reset_index()
 
-            plt.figure(figsize=(9, 5))
+            fig, ax = plt.subplots(figsize=(10, 6))
 
-            for filter_name in [
-                "Noisy (Baseline)"
-            ] + list(filters.keys()):
+            if metric == "Execution_Time":
+                filter_names = list(filters.keys())
+                x = np.arange(len(level_order))
+                bar_width = 0.8 / len(filter_names)
+                all_values = []
 
-                filter_results = summary[
-                    summary["Filter"] == filter_name
-                ]
+                for filter_index, filter_name in enumerate(filter_names):
+                    filter_results = (
+                        summary[summary["Filter"] == filter_name]
+                        .set_index("Noise_Level")
+                        .reindex(level_order)
+                    )
+                    values = filter_results[metric].to_numpy(dtype=float)
+                    all_values.extend(values[np.isfinite(values) & (values > 0)])
+                    positions = x - 0.4 + bar_width * (filter_index + 0.5)
+                    bars = ax.bar(positions, values, bar_width, label=filter_name)
 
-                filter_results = (
-                    filter_results
-                    .set_index("Noise_Level")
-                    .reindex(level_order)
-                )
+                    for bar, value in zip(bars, values):
+                        if np.isfinite(value) and value > 0:
+                            ax.annotate(
+                                f"{value:.4g}s",
+                                (bar.get_x() + bar.get_width() / 2, value),
+                                xytext=(0, 3),
+                                textcoords="offset points",
+                                ha="center",
+                                va="bottom",
+                                fontsize=8,
+                                rotation=45
+                            )
 
-                plt.plot(
-                    level_order,
-                    filter_results[metric],
-                    marker="o",
-                    label=filter_name
-                )
+                if all_values:
+                    y_floor = min(all_values) * 0.5
+                    y_top = max(all_values) * 4
+                    for bar in ax.patches:
+                        bar.set_y(y_floor)
+                        bar.set_height(max(bar.get_height() - y_floor, y_floor * 0.01))
+                    ax.set_yscale("log")
+                    ax.set_ylim(y_floor, y_top)
 
-            plt.title(f"{metric} Comparison - {noise_type}")
-            plt.xlabel("Noise Level")
-            plt.ylabel(ylabel)
+                ax.set_xticks(x, level_order)
+                ax.set_ylabel("Execution Time (seconds, log scale)")
+            else:
+                for filter_name in ["Noisy (Baseline)"] + list(filters.keys()):
+                    filter_results = (
+                        summary[summary["Filter"] == filter_name]
+                        .set_index("Noise_Level")
+                        .reindex(level_order)
+                    )
+                    ax.plot(
+                        level_order,
+                        filter_results[metric],
+                        marker="o",
+                        label=filter_name
+                    )
+
+                ax.set_ylabel(ylabel)
+
+            ax.set_title(f"{metric} Comparison - {noise_type}")
+            ax.set_xlabel("Noise Level")
             plt.legend()
             plt.grid(True)
             plt.tight_layout()
@@ -303,7 +354,9 @@ def create_graphs(results):
     print("Graphs created successfully.")
 
 
+# --------------------------------------------------
 # 9. MAIN FUNCTION
+# --------------------------------------------------
 
 def next_results_path():
     RESULTS_PATH.mkdir(parents=True, exist_ok=True)
