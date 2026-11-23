@@ -12,7 +12,8 @@ from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from add_noise import (
     add_gaussian_noise,
     add_salt_pepper_noise,
-    add_speckle_noise
+    add_speckle_noise,
+    add_poisson_noise
 )
 
 from filter import (
@@ -20,7 +21,8 @@ from filter import (
     apply_median_filter,
     apply_bilateral_filter,
     apply_nlm_filter,
-    apply_lee_filter
+    apply_lee_filter,
+    apply_tv_filter
 )
 
 
@@ -32,7 +34,7 @@ DATASET_PATH = Path("dataset/BSD68")
 RESULTS_PATH = Path("results")
 
 BASE_SEED = 42
-MAX_IMAGES = 10  # Set to None to process the full dataset
+MAX_IMAGES = 1 # Set to None to process the full dataset
 
 NOISE_LEVELS = {
     "Gaussian": {
@@ -51,6 +53,12 @@ NOISE_LEVELS = {
         "Low": 0.01,
         "Medium": 0.04,
         "High": 0.10
+    },
+
+    "Poisson": {
+        "Low": 100,
+        "Medium": 30,
+        "High": 10
     }
 }
 
@@ -103,6 +111,11 @@ def generate_noisy_image(image, noise_type, noise_level, seed):
     elif noise_type == "Speckle":
         return add_speckle_noise(image, noise_level, seed)
 
+    elif noise_type == "Poisson":
+        return add_poisson_noise(
+         image, noise_level, seed )
+
+
 
 # --------------------------------------------------
 # 4. EVALUATION
@@ -134,7 +147,8 @@ filters = {
     "Median Filter": apply_median_filter,
     "Bilateral Filter": apply_bilateral_filter,
     "NLM Filter": apply_nlm_filter,
-    "Lee Filter": apply_lee_filter
+    "Lee Filter": apply_lee_filter,
+    "TV Filter": apply_tv_filter
 }
 
 
@@ -188,6 +202,7 @@ def run_experiments(images):
                     "SSIM": ssim,
                     "Execution_Time": 0
                 })
+                filtered_images = {}
 
                 # Apply every filter to the same noisy image
                 for filter_name, filter_function in filters.items():
@@ -198,6 +213,7 @@ def run_experiments(images):
                         noisy_image.copy()
                     )
 
+                    filtered_images[filter_name] = filtered_image.copy()
                     execution_time = time.perf_counter() - start_time
 
                     psnr, ssim = calculate_metrics(
@@ -214,9 +230,121 @@ def run_experiments(images):
                         "SSIM": ssim,
                         "Execution_Time": execution_time
                     })
+                if image_index == 0:
+                    save_image_comparison(
+                        original_image,
+                        noisy_image,
+                        filtered_images,
+                        noise_type,
+                        level_name
+                    )
 
     return pd.DataFrame(results)
 
+
+
+def save_image_comparison(original, noisy, filtered_images,
+                          noise_type, noise_level):
+
+    output_dir = RESULTS_PATH / "comparisons"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    images = [
+        ("Original", original),
+        ("Noisy", noisy)
+    ]
+
+    images.extend(filtered_images.items())
+
+    fig, axes = plt.subplots(2, 4, figsize=(16, 8))
+    axes = axes.flatten()
+
+    for i, (name, image) in enumerate(images):
+
+        axes[i].imshow(image, cmap="gray", vmin=0, vmax=1)
+        axes[i].axis("off")
+
+        if name == "Original":
+            axes[i].set_title("Original Image")
+        else:
+            psnr, ssim = calculate_metrics(original, image)
+
+            axes[i].set_title(
+                f"{name}\n"
+                f"PSNR: {psnr:.2f} dB\n"
+                f"SSIM: {ssim:.3f}",
+                fontsize=10
+            )
+
+    for i in range(len(images), len(axes)):
+        axes[i].axis("off")
+
+    fig.suptitle(
+        f"{noise_type} Noise - {noise_level}",
+        fontsize=16
+    )
+
+    plt.tight_layout()
+
+    filename = (
+        f"{noise_type.lower().replace('-', '_').replace(' ', '_')}"
+        f"_{noise_level.lower()}.png"
+    )
+
+    plt.savefig(output_dir / filename, dpi=150)
+    plt.close()
+
+
+def save_noise_comparison(original_image, image_name):
+    """Compare all four noise types on the same original image."""
+
+    noise_settings = [
+        ("Gaussian", 25),
+        ("Salt-and-Pepper", 0.10),
+        ("Speckle", 0.04),
+        ("Poisson", 30)
+    ]
+
+    images = [("Original", original_image)]
+
+    for noise_type, noise_value in noise_settings:
+        noisy_image = generate_noisy_image(
+            original_image,
+            noise_type,
+            noise_value,
+            BASE_SEED
+        )
+
+        images.append((noise_type, noisy_image))
+
+    fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+
+    for ax, (name, image) in zip(axes, images):
+        ax.imshow(image, cmap="gray", vmin=0, vmax=1)
+        ax.axis("off")
+
+        if name == "Original":
+            ax.set_title("Original")
+        else:
+            psnr, ssim = calculate_metrics(original_image, image)
+
+            ax.set_title(
+                f"{name}\nPSNR: {psnr:.2f} dB\n"
+                f"SSIM: {ssim:.3f}",
+                fontsize=11
+            )
+
+    output_dir = RESULTS_PATH / "noise_comparisons"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_dir / f"{Path(image_name).stem}_noise_comparison.png",
+        dpi=150
+    )
+
+    plt.close()
 
 # --------------------------------------------------
 # 7. SAVE RESULTS
@@ -376,6 +504,11 @@ def main():
 
     global RESULTS_PATH
     RESULTS_PATH = next_results_path()
+
+    save_noise_comparison(
+    images[0][1],
+    images[0][0]
+    ) 
 
     results = run_experiments(images)
 

@@ -48,3 +48,16 @@ def add_speckle_noise(image, variance, seed=42):
     noisy_image = image + image * noise
 
     return np.clip(noisy_image, 0, 1)
+
+
+def add_poisson_noise(image, peak=30, seed=42):
+    
+    rng = np.random.default_rng(seed)
+
+    expected_photons = image * peak
+
+    noisy_photons = rng.poisson(expected_photons)
+
+    noisy_image = noisy_photons / peak
+
+    return np.clip(noisy_image, 0, 1)

@@ -1,7 +1,7 @@
 
 import numpy as np
 import cv2
-from skimage.restoration import denoise_nl_means, estimate_sigma
+from skimage.restoration import denoise_nl_means, estimate_sigma, denoise_tv_chambolle
 
 
 def apply_gaussian_filter(image, kernel_size=5, sigma=1.0):
@@ -77,5 +77,24 @@ def apply_lee_filter(image, window_size=5):
     weight = local_variance / (local_variance + noise_variance + 1e-10)
 
     filtered_image = mean + weight * (image - mean)
+
+    return np.clip(filtered_image, 0, 1)
+
+
+def apply_tv_filter(image, weight=0.1):
+    """
+    Applies Total Variation denoising.
+
+    weight: Controls smoothing strength.
+            Higher weight = stronger smoothing.
+    """
+
+    image = image.astype(np.float32)
+
+    filtered_image = denoise_tv_chambolle(
+        image,
+        weight=weight,
+        channel_axis=None
+    )
 
     return np.clip(filtered_image, 0, 1)
