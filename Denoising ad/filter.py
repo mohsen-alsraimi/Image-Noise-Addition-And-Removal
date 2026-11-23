@@ -21,12 +21,26 @@ def apply_median_filter(image, kernel_size=5):
     """
     Applies Median Blur to the image.
     """
+
+    image_uint8 = (
+        np.clip(image, 0, 1) * 255
+    ).round().astype(np.uint8)
+
+    """
     filtered_image = cv2.medianBlur(
         image.astype(np.float32),
         kernel_size
     )
+    """
 
-    return np.clip(filtered_image, 0, 1)
+    filtered_uint8 = cv2.medianBlur(
+        image_uint8,
+        kernel_size
+    )
+
+    filtered_image = filtered_uint8.astype(np.float32) / 255.0
+
+    return filtered_image
 
 
 def apply_bilateral_filter(image, diameter=9, sigma_color=0.1, sigma_space=75):

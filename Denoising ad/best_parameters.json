@@ -1,0 +1,274 @@
+{
+    "Gaussian": {
+        "Low": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.1
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 5
+            },
+            "TV Filter": {
+                "weight": 0.03
+            }
+        },
+        "Medium": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.07
+            }
+        },
+        "High": {
+            "Gaussian Filter": {
+                "kernel_size": 7,
+                "sigma": 1.5
+            },
+            "Median Filter": {
+                "kernel_size": 7
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        }
+    },
+    "Salt-and-Pepper": {
+        "Low": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.15
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        },
+        "Medium": {
+            "Gaussian Filter": {
+                "kernel_size": 7,
+                "sigma": 1.5
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.2
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        },
+        "High": {
+            "Gaussian Filter": {
+                "kernel_size": 7,
+                "sigma": 1.5
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.2
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        }
+    },
+    "Speckle": {
+        "Low": {
+            "Gaussian Filter": {
+                "kernel_size": 3,
+                "sigma": 0.5
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.1
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 5
+            },
+            "TV Filter": {
+                "weight": 0.03
+            }
+        },
+        "Medium": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 5
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        },
+        "High": {
+            "Gaussian Filter": {
+                "kernel_size": 7,
+                "sigma": 1.5
+            },
+            "Median Filter": {
+                "kernel_size": 5
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.15
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        }
+    },
+    "Poisson": {
+        "Low": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 3
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.07
+            }
+        },
+        "Medium": {
+            "Gaussian Filter": {
+                "kernel_size": 5,
+                "sigma": 1.0
+            },
+            "Median Filter": {
+                "kernel_size": 5
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        },
+        "High": {
+            "Gaussian Filter": {
+                "kernel_size": 7,
+                "sigma": 1.5
+            },
+            "Median Filter": {
+                "kernel_size": 7
+            },
+            "Bilateral Filter": {
+                "diameter": 9,
+                "sigma_color": 0.2
+            },
+            "NLM Filter": {
+                "h": 0.1
+            },
+            "Lee Filter": {
+                "window_size": 7
+            },
+            "TV Filter": {
+                "weight": 0.1
+            }
+        }
+    }
+}

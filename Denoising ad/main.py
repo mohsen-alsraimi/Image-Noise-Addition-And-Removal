@@ -5,6 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import time
+import json
+import inspect
 from pathlib import Path
 
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
@@ -34,7 +36,9 @@ DATASET_PATH = Path("dataset/BSD68")
 RESULTS_PATH = Path("results")
 
 BASE_SEED = 42
-MAX_IMAGES = 1 # Set to None to process the full dataset
+MAX_IMAGES = None  # Set to None to process the full dataset
+
+TUNED_PARAMETERS_FILE = Path("best_parameters.json")
 
 NOISE_LEVELS = {
     "Gaussian": {
@@ -160,6 +164,13 @@ def run_experiments(images):
 
     results = []
 
+    tuned_parameters = None
+
+    if TUNED_PARAMETERS_FILE is not None:
+        with open(TUNED_PARAMETERS_FILE, encoding="utf-8") as file:
+            tuned_parameters = json.load(file)
+
+
     noise_types = list(NOISE_LEVELS.keys())
 
     for image_index, (image_name, original_image) in enumerate(images):
@@ -209,9 +220,27 @@ def run_experiments(images):
 
                     start_time = time.perf_counter()
 
+                    
+                    params = {}
+
+                    if tuned_parameters is not None:
+                            params = tuned_parameters[
+                                noise_type
+                            ][level_name][filter_name].copy()
+
+                    if (
+                            filter_name == "Lee Filter"
+                            and noise_type == "Speckle"
+                            and "speckle_variance"
+                            in inspect.signature(filter_function).parameters
+                    ):
+                            params["speckle_variance"] = noise_value
+
                     filtered_image = filter_function(
-                        noisy_image.copy()
-                    )
+                            noisy_image.copy(),
+                            **params
+                   )
+                    
 
                     filtered_images[filter_name] = filtered_image.copy()
                     execution_time = time.perf_counter() - start_time
