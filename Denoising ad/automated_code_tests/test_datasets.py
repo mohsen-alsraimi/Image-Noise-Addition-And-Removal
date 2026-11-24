@@ -1,5 +1,5 @@
 """
-Focused tests for Stage B: the Urban100_HR and original_png datasets.
+Tests for the Urban100_HR and original_png datasets: loading, choosing, and showing them.
 
 Run from the "Denoising ad" folder:
 
@@ -61,7 +61,7 @@ class DatasetFilesTests(unittest.TestCase):
                 self.assertEqual(len(dataset_names(name)), count)
 
     def test_tuning_still_uses_only_set12(self):
-        # tune_filters.py runs tuning when imported, so only its source is read.
+        # Reading the source is enough: the dataset path is a fixed line in tune_filters.py.
         source = (PROJECT_DIR / "tune_filters.py").read_text(encoding="utf-8")
         self.assertIn('DATASET_PATH = Path("dataset/Set12")', source)
         self.assertNotIn("Urban100", source)
@@ -120,6 +120,7 @@ class DatasetJobTests(unittest.TestCase):
         st.cache_data.clear()
         with use_results_folder(self.results):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             self.assertEqual(len(app.exception), 0)
             self.assertEqual(app.selectbox(key="saved_run").value, "result2")
@@ -133,9 +134,10 @@ class DatasetJobTests(unittest.TestCase):
 
 class RunViewDatasetTests(unittest.TestCase):
     def test_each_dataset_shows_its_count_names_and_notes(self):
-        with mock.patch.object(job_runner, "start_job") as start:
+        with mock.patch.object(job_runner, "start_job", return_value=None) as start:
             app = AppTest.from_file(APP, default_timeout=30)
-            app.session_state["view"] = "Run Experiment"
+            app.session_state["view"] = "results"  # the app now opens on Home
+            app.session_state["view"] = "run"
             app.run()
             self.assertEqual(list(app.selectbox(key="run_dataset").options), list(EXPECTED_COUNTS))
 

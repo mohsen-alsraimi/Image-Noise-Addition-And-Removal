@@ -26,6 +26,10 @@ sys.path.insert(0, str(PROJECT_DIR / "frontend"))
 
 import app_helpers as helpers
 
+# Lets tests skip cleanly when a locally saved run is missing
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # for saved_runs
+from saved_runs import needs_saved_runs
+
 
 def summary_table(scores):
     rows = [
@@ -114,6 +118,7 @@ class DisplayRuleTests(unittest.TestCase):
                 self.assertEqual(helpers.format_settings(entry), expected)
 
 
+@needs_saved_runs('result13')
 class RealResult13Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -143,6 +148,7 @@ class RealResult13Tests(unittest.TestCase):
 
     def test_page_shows_clear_and_close_results(self):
         app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+        app.session_state["view"] = "results"  # the app now opens on Home
         app.run()
         self.assertEqual(len(app.exception), 0)
 

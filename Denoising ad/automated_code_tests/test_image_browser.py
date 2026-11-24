@@ -1,5 +1,5 @@
 """
-Focused tests for Stage 3.1: one comparison picture per image in full-dataset
+Tests for the image browser: one comparison picture per image in full-dataset
 runs, and choosing an image in Results.
 
 Run from the "Denoising ad" folder:
@@ -33,6 +33,7 @@ from test_single_image_job import PROJECT_DIR
 import app_helpers as helpers
 import job_runner
 import main
+from saved_runs import needs_saved_runs
 
 APP = str(PROJECT_DIR / "frontend" / "app.py")
 
@@ -121,8 +122,9 @@ class SavedPicturesTests(unittest.TestCase):
     def test_results_lets_me_choose_any_image_and_shows_its_scores(self):
         st.cache_data.clear()
         with use_results_folder(self.results), \
-                mock.patch.object(job_runner, "start_job") as start:
+                mock.patch.object(job_runner, "start_job", return_value=None) as start:
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             self.assertEqual(len(app.exception), 0)
             chooser = app.selectbox(key="compare_image")
@@ -148,6 +150,7 @@ class SavedPicturesTests(unittest.TestCase):
         self.assertIn("test003.png only", " ".join(item.value for item in app.info))
 
 
+@needs_saved_runs('result13', 'result14', 'result16')
 class OlderResultsTests(unittest.TestCase):
     def test_older_runs_list_only_the_pictures_they_saved(self):
         runs = helpers.find_saved_runs()
@@ -165,6 +168,7 @@ class OlderResultsTests(unittest.TestCase):
     def test_result16_opens_with_its_one_saved_picture(self):
         st.cache_data.clear()
         app = AppTest.from_file(APP, default_timeout=30)
+        app.session_state["view"] = "results"  # the app now opens on Home
         app.session_state["open_result"] = {
             "run": "result16", "noise_type": "Salt-and-Pepper", "noise_level": "Medium"
         }

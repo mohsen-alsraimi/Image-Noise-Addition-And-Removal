@@ -33,6 +33,7 @@ import app_helpers as helpers
 import experiment_job as jobs
 import job_runner
 import main
+from saved_runs import needs_saved_runs
 
 APP = str(PROJECT_DIR / "frontend" / "app.py")
 CONDITIONS = [(noise, level) for noise, levels in main.NOISE_LEVELS.items() for level in levels]
@@ -160,11 +161,13 @@ class FullMatrixRunTests(unittest.TestCase):
         st.cache_data.clear()
         with use_results_folder(self.results):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             self.assertEqual(len(app.exception), 0)
             self.assertIn("All 12 noise conditions", " ".join(m.value for m in app.markdown))
 
-            overview = app.dataframe[0].value
+            # The overview is in the "All 12 conditions" tab
+            overview = next(t.value for t in app.dataframe if "Filtering helped?" in t.value.columns)
             self.assertEqual(len(overview), 12)
             for _, row in best.iterrows():
                 match = overview[(overview["Noise"] == row["Noise_Type"]) & (overview["Strength"] == row["Noise_Level"])]
@@ -177,8 +180,9 @@ class FullMatrixRunTests(unittest.TestCase):
 
     def test_image_browser_across_conditions(self):
         st.cache_data.clear()
-        with use_results_folder(self.results), mock.patch.object(job_runner, "start_job") as start:
+        with use_results_folder(self.results), mock.patch.object(job_runner, "start_job", return_value=None) as start:
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             app.selectbox(key="compare_image").set_value("test003.png")
             app.selectbox(key="compare_condition").set_value("Poisson / Low").run()
@@ -209,6 +213,7 @@ class PicturesOffTests(unittest.TestCase):
             st.cache_data.clear()
             with use_results_folder(root / "results"):
                 app = AppTest.from_file(APP, default_timeout=30)
+                app.session_state["view"] = "results"  # the app now opens on Home
                 app.run()
             st.cache_data.clear()
         self.assertEqual(len(app.exception), 0)
@@ -229,6 +234,7 @@ class JobRuleTests(unittest.TestCase):
             jobs.validate_job_filters(job)
 
 
+@needs_saved_runs('result13', 'result16', 'result17')
 class OlderResultsTests(unittest.TestCase):
     def test_saved_runs_still_open(self):
         runs = helpers.find_saved_runs()
@@ -237,6 +243,7 @@ class OlderResultsTests(unittest.TestCase):
         for run in ("result17", "result16", "result13"):
             with self.subTest(run=run):
                 app = AppTest.from_file(APP, default_timeout=30)
+                app.session_state["view"] = "results"  # the app now opens on Home
                 app.session_state["saved_run"] = run
                 app.run()
                 self.assertEqual(len(app.exception), 0)
@@ -248,8 +255,9 @@ class RunViewTests(unittest.TestCase):
                 mock.patch.object(job_runner, "start_job", return_value="job-1") as start, \
                 mock.patch.object(job_runner, "job_state", return_value={"state": "running"}):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
-            app.radio(key="view").set_value("Run Experiment").run()
+            app.segmented_control(key="view").set_value("run").run()
             self.assertNotIn("run_noise_scope", [r.key for r in app.radio])
 
             app.radio(key="run_scope").set_value("Full dataset").run()

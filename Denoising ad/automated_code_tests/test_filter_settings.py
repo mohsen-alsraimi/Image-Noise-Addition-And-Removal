@@ -1,5 +1,5 @@
 """
-Focused tests for Stage 2.5: choosing each filter's settings.
+Tests for choosing each filter's settings: presets, hand edits, and saved records.
 
 Run from the "Denoising ad" folder:
 
@@ -30,6 +30,7 @@ import app_helpers as helpers
 import experiment_job as jobs
 import job_runner
 import main
+from saved_runs import needs_saved_runs
 
 SOURCES = ("default", "previous_2_image", "new_12_image")
 
@@ -143,16 +144,20 @@ class MixedSettingsRunTests(unittest.TestCase):
                 mock.patch.object(helpers, "comparison_images",
                                   functools.partial(helpers.comparison_images, results_dir=results)):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
         st.cache_data.clear()
 
         self.assertEqual(len(app.exception), 0)
-        table = app.dataframe[0].value.set_index("Filter")
+        # The settings table is in the "Details and settings" tab
+        table = next(t.value for t in app.dataframe if "Settings used" in t.value.columns).set_index("Filter")
         self.assertEqual(table.loc["NLM", "Settings used"], "patch_size=5, patch_distance=9, h=0.1")
-        self.assertEqual(table.loc["NLM", "Preset"], "New 12-image tuned parameters, then edited")
-        self.assertEqual(table.loc["Bilateral", "Preset"], "Previous 2-image tuned parameters")
+        self.assertEqual(table.loc["NLM", "Preset"], "Optimized settings (tuned on Set12), then custom values")
+        # Older runs that used the now-hidden 2-image preset still name it
+        self.assertEqual(table.loc["Bilateral", "Preset"], "Old 2-image tuned settings (not recommended)")
 
 
+@needs_saved_runs('result13')
 class BackendAgreementTests(unittest.TestCase):
     def test_unedited_presets_match_full_dataset_scores(self):
         chosen = {
@@ -180,8 +185,9 @@ class BackendAgreementTests(unittest.TestCase):
 class RunViewTests(unittest.TestCase):
     def open_run_view(self):
         app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+        app.session_state["view"] = "results"  # the app now opens on Home
         app.run()
-        app.radio(key="view").set_value("Run Experiment").run()
+        app.segmented_control(key="view").set_value("run").run()
         app.selectbox(key="run_noise").set_value("Gaussian")
         app.selectbox(key="run_level").set_value("Low").run()
         return app
@@ -215,7 +221,7 @@ class RunViewTests(unittest.TestCase):
             self.assertEqual(app.selectbox(key=param_key("NLM Filter", "h")).value, 0.1)
 
             app.selectbox(key=param_key("NLM Filter", "patch_distance")).set_value(9).run()
-            self.assertIn("Edited", " ".join(item.value for item in app.caption))
+            self.assertIn("Custom values", " ".join(item.value for item in app.caption))
             start.assert_not_called()
 
             app.button(key="run_experiment").click().run()
@@ -237,9 +243,13 @@ class RunViewTests(unittest.TestCase):
                 ["Gaussian", "Median", "Bilateral", "NLM", "Lee", "TV"],
             )
 
+            # Only Default and Optimized are offered; the old 2-image preset is hidden
+            self.assertEqual(list(app.selectbox(key="preset::Bilateral Filter").options),
+                             ["Default settings", "Optimized settings (tuned on Set12)"])
+
             app.selectbox(key=param_key("Median Filter", "kernel_size")).set_value(7).run()
             app.selectbox(key=param_key("TV Filter", "weight")).set_value(0.2).run()
-            app.selectbox(key="preset::Bilateral Filter").set_value("previous_2_image").run()
+            app.selectbox(key="preset::Bilateral Filter").set_value("new_12_image").run()
             start.assert_not_called()
 
             app.button(key="run_experiment").click().run()
@@ -248,7 +258,8 @@ class RunViewTests(unittest.TestCase):
             self.assertEqual(sent["Median Filter"], settings("default", kernel_size=7))
             self.assertEqual(sent["TV Filter"], settings("default", weight=0.2))
             self.assertEqual(sent["Bilateral Filter"], settings(
-                "previous_2_image", diameter=9, sigma_color=0.1, sigma_space=75))
+                "new_12_image", **jobs.preset_parameters(
+                    "new_12_image", "Bilateral Filter", main.filters["Bilateral Filter"], "Gaussian", "Low")))
             self.assertEqual(sent["Gaussian Filter"], settings("default", kernel_size=5, sigma=1.0))
 
             app.selectbox(key="run_noise").set_value("Speckle").run()

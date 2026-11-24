@@ -1,5 +1,5 @@
 """
-Focused tests for Stage C: JPEG compression and glare experiments.
+Tests for JPEG compression and glare experiments: functions, jobs, and pages.
 
 Run from the "Denoising ad" folder:
 
@@ -247,13 +247,14 @@ class DegradationRunTests(unittest.TestCase):
         st.cache_data.clear()
         with use_results_folder(self.results):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             self.assertEqual(len(app.exception), 0)
-            self.assertIn("Overview: all degradation conditions", [h.value for h in app.header])
+            self.assertIn("All 6 conditions", " ".join(t.label for t in app.tabs))
             self.assertIn("Image degradation experiment", " ".join(i.value for i in app.info))
             self.assertIn("All 6 degradation conditions", " ".join(m.value for m in app.markdown))
 
-            overview = app.dataframe[0].value
+            overview = next(t.value for t in app.dataframe if "Filtering helped?" in t.value.columns)
             self.assertIn("Degradation", overview.columns)
             self.assertIn("Degraded PSNR (dB)", overview.columns)
             for (noise, level), value in helped.items():
@@ -282,12 +283,13 @@ class DegradationRunTests(unittest.TestCase):
 class RunViewDegradationTests(unittest.TestCase):
     def open_run_view(self):
         app = AppTest.from_file(APP, default_timeout=30)
-        app.session_state["view"] = "Run Experiment"
+        app.session_state["view"] = "results"  # the app now opens on Home
+        app.session_state["view"] = "run"
         app.run()
         return app
 
     def test_choosing_image_degradation(self):
-        with mock.patch.object(job_runner, "start_job") as start:
+        with mock.patch.object(job_runner, "start_job", return_value=None) as start:
             app = self.open_run_view()
             self.assertEqual(list(app.radio(key="run_test_kind").options), ["Noise", "Image degradation"])
             self.assertEqual(list(app.selectbox(key="run_noise").options),
@@ -301,7 +303,7 @@ class RunViewDegradationTests(unittest.TestCase):
 
             self.assertEqual(list(app.selectbox(key="run_degradation").options), ["JPEG Compression", "Glare"])
             self.assertEqual(list(app.selectbox(key="run_degradation_level").options), ["Low", "Medium", "High"])
-            self.assertEqual(list(app.selectbox(key="preset::Median Filter").options), ["Default parameters"])
+            self.assertEqual(list(app.selectbox(key="preset::Median Filter").options), ["Default settings"])
             self.assertEqual(app.selectbox(key="preset::Median Filter").value, "default")
             # The tuned noise value (kernel 3) was replaced by the filter's default
             default = jobs.preset_parameters("default", "Median Filter", main.filters["Median Filter"],
@@ -324,7 +326,7 @@ class RunViewDegradationTests(unittest.TestCase):
             jobs.validate_job_filters(job)
 
     def test_full_dataset_all_degradation_conditions(self):
-        with mock.patch.object(job_runner, "start_job") as start:
+        with mock.patch.object(job_runner, "start_job", return_value=None) as start:
             app = self.open_run_view()
             app.radio(key="run_scope").set_value("Full dataset")
             app.radio(key="run_test_kind").set_value("Image degradation").run()

@@ -1,4 +1,4 @@
-# Used when the Results Viewer is started from the "Denoising ad" folder.
+# Used when the Image Noise Lab is started from the "Denoising ad" folder.
 
 [server]
 # Only this computer can open the app.
@@ -10,3 +10,20 @@ gatherUsageStats = false
 [client]
 # Hide Streamlit's Deploy button.
 toolbarMode = "minimal"
+
+# Look of the app. Streamlit's own fonts are used, so nothing is downloaded.
+# Headings use the serif font; all other text uses the sans-serif font.
+[theme]
+font = "sans-serif"
+headingFont = "serif"
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+baseRadius = "0.55rem"
+showWidgetBorder = true
+
+# The user can switch between light and dark in the app menu.
+[theme.light]
+primaryColor = "#1F5F8B"
+
+[theme.dark]
+# White button text stays readable (contrast 4.8:1); 3.8:1 against the dark background
+primaryColor = "#2F78AD"

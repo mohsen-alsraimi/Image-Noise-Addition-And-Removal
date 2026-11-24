@@ -24,6 +24,22 @@ CLOSE_RESULT_DB = 0.2
 
 NOT_MEASURED = "Not measured"
 
+# Names shown in the interface for the saved presets. Only the label changes:
+# the preset id, its file and its values are exactly what experiment_job.py uses.
+PRESET_LABELS = {
+    "default": "Default settings",
+    "new_12_image": "Optimized settings (tuned on Set12)",
+    "previous_2_image": "Old 2-image tuned settings (not recommended)",
+}
+
+# Presets offered when starting a new experiment. The old 2-image preset is
+# hidden, but older saved runs that used it still show its name.
+VISIBLE_PRESETS = ("default", "new_12_image")
+
+
+def preset_label(source_id):
+    return PRESET_LABELS.get(source_id, source_id)
+
 # Metrics the overview can rank by: saved column, label, number format.
 METRICS = {
     "PSNR": ("PSNR", "PSNR (dB)", "{:.2f}"),
@@ -186,8 +202,8 @@ def describe_parameter_source(config):
 
     if source["mode"] == "per_filter":
         return (
-            "Chosen separately for each filter. Section 3 shows each "
-            "filter's preset and final values",
+            "Chosen separately for each filter. The Details tab shows each "
+            "filter's preset and exact values",
             False,
         )
 
@@ -247,9 +263,9 @@ def describe_run(run_name, config):
     elif source["mode"] != "tuned":
         settings = "default settings"
     elif source.get("file_sha256") == OLD_PARAMETERS_SHA256:
-        settings = "old tuned settings"
+        settings = "old 2-image tuned settings"
     elif source.get("source_id") == "new_12_image":
-        settings = "new 12-image tuned settings"
+        settings = "optimized settings (tuned on Set12)"
     else:
         settings = "tuned settings"
 
@@ -271,9 +287,10 @@ def describe_preset(record):
     """Plain text for where one filter's values started."""
     if not record:
         return "Unknown"
+    label = PRESET_LABELS.get(record.get("preset"), record["preset_label"])
     if record["edited"]:
-        return f"{record['preset_label']}, then edited"
-    return record["preset_label"]
+        return f"{label}, then custom values"
+    return label
 
 
 def comparison_images(config, run_name, noise_type, level, results_dir=RESULTS_DIR):
@@ -319,8 +336,10 @@ def image_scores(rows, noise_type, level, image_name, baseline_label="Noisy (no 
         "Filter": [short_name(name) for name in filters["Filter"]] + [baseline_label] * len(noisy),
         "PSNR (dB)": [f"{value:.2f}" for value in both["PSNR"]],
         "SSIM": [f"{value:.3f}" for value in both["SSIM"]],
-        "Edge F1": [show_number(value) for value in edge_f1],
     })
+    # Older runs did not measure edges; their tables simply leave the column out
+    if "Edge_F1" in both.columns:
+        table["Edge F1"] = [show_number(value) for value in edge_f1]
 
     if len(filters) > 1:
         best = filters["PSNR"].max()

@@ -1,4 +1,35 @@
-"""Plain-English text for the Results Viewer. It contains no result numbers."""
+"""Plain-English text for the Image Noise Lab pages. It contains no result numbers."""
+
+# Short definitions, used for tooltips and on the "Learn" page
+GLOSSARY = {
+    "Image": "A grid of pixels. Each pixel here is a brightness from 0 (black) to 1 (white).",
+    "Noise": "Unwanted random changes in pixel brightness, like grain in a dark photo.",
+    "Image damage": "Changes that are not random noise, such as JPEG blocks or a bright glare spot.",
+    "Filter": "An algorithm that looks at each pixel and its neighbours and tries to undo the noise.",
+    "Kernel / window size": "How many neighbouring pixels the filter looks at. Bigger is smoother but blurrier.",
+    "Strength": "How much noise or damage is added: Low, Medium or High. The exact values are fixed.",
+    "Baseline": "The noisy or damaged image before any filter. A filter only helped if it beats this.",
+    "PSNR": "How close the pixel values are to the original, in decibels (dB). Higher is better.",
+    "SSIM": "How similar shapes and textures are to the original, from 0 to 1. Higher is better.",
+    "Edge F1": "How well object outlines agree with the original. Useful, but misleading under heavy noise.",
+    "Dataset": "A folder of test images. Experiments run on one image or on all of them.",
+    "Preset": "A saved set of filter values. You can start from one and still change any value.",
+    "Seed": "A fixed number that makes the random noise repeatable, so results can be checked.",
+}
+
+# Short names for filter settings, shown as control labels
+PARAMETER_LABELS = {
+    "kernel_size": "Window size",
+    "sigma": "Blur amount (sigma)",
+    "diameter": "Neighbourhood width",
+    "sigma_color": "Brightness similarity",
+    "sigma_space": "Distance reach",
+    "patch_size": "Patch size",
+    "patch_distance": "Search distance",
+    "h": "Smoothing strength (h)",
+    "window_size": "Window size",
+    "weight": "Smoothing strength",
+}
 
 PSNR_TEXT = (
     "**PSNR** measures how close the pixel values are to the clean image. "
@@ -75,6 +106,16 @@ FILTER_TEXT = {
     "NLM": "Non-Local Means averages pixels from small image patches that look similar.",
     "Lee": "The Lee filter smooths flat areas more and keeps areas with strong detail.",
     "TV": "Total Variation removes small ups and downs while trying to keep strong edges.",
+}
+
+# One line per filter: what it is good at, for beginners choosing filters
+FILTER_GOOD_FOR = {
+    "Gaussian": "Fast and simple; reduces fine grain but blurs edges.",
+    "Median": "Removes isolated black and white dots (salt-and-pepper).",
+    "Bilateral": "Smooths flat areas while keeping strong edges sharp.",
+    "NLM": "High quality on grain and texture; the slowest filter.",
+    "Lee": "Made for speckle, where noise grows with brightness.",
+    "TV": "Flattens grain and keeps big edges; can look a little cartoon-like.",
 }
 
 WHY_TEXT = {

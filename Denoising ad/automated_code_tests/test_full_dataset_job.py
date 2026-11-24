@@ -1,5 +1,5 @@
 """
-Focused tests for Stage 3: running every image in a dataset.
+Tests for full-dataset experiments: running every image in a dataset.
 
 Run from the "Denoising ad" folder:
 
@@ -202,6 +202,7 @@ class FullDatasetRunTests(unittest.TestCase):
                 mock.patch.object(helpers, "comparison_images",
                                   functools.partial(helpers.comparison_images, results_dir=results)):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.session_state["open_result"] = {
                 "run": "result1", "noise_type": "Salt-and-Pepper", "noise_level": "Medium"
             }
@@ -210,8 +211,8 @@ class FullDatasetRunTests(unittest.TestCase):
 
         self.assertEqual(len(app.exception), 0)
         self.assertTrue(app.subheader[0].value.startswith("Best filter by average PSNR:"))
-        self.assertIn("averages across 2 images", " ".join(item.value for item in app.info))
-        table = app.dataframe[0].value
+        self.assertIn("averages across 2 images", " ".join(item.value for item in app.caption))
+        table = next(t.value for t in app.dataframe if "Average time (ms)" in t.value.columns)
         self.assertEqual(len(table), 3)
         self.assertIn("Average time (ms)", table.columns)
         self.assertEqual(sorted(table["Best PSNR on"].str.endswith(" of 2")), [True] * 3)
@@ -261,8 +262,9 @@ class RunViewTests(unittest.TestCase):
                 mock.patch.object(job_runner, "start_job", return_value="job-1") as start, \
                 mock.patch.object(job_runner, "job_state", return_value={"state": "running"}):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
-            app.radio(key="view").set_value("Run Experiment").run()
+            app.segmented_control(key="view").set_value("run").run()
             self.assertIn("run_image", [box.key for box in app.selectbox])
 
             app.radio(key="run_scope").set_value("Full dataset").run()
@@ -287,6 +289,7 @@ class RunViewTests(unittest.TestCase):
         with mock.patch.object(job_runner, "active_job_id", return_value="job-1"), \
                 mock.patch.object(job_runner, "job_state", return_value=running):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
         self.assertEqual(len(app.exception), 0)
         self.assertIn("Processing image 24 of 68", " ".join(item.value for item in app.info))
@@ -296,11 +299,12 @@ class RunViewTests(unittest.TestCase):
                 mock.patch.object(job_runner, "job_state", return_value={"state": "completed", "result": "result99"}), \
                 mock.patch.object(job_runner, "result_is_complete", return_value=False):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.session_state["watched_job"] = "job-1"
             app.run()
         self.assertEqual(len(app.exception), 0)
         self.assertIn("Status: Failed", " ".join(item.value for item in app.error))
-        self.assertEqual(app.radio(key="view").value, "Results")
+        self.assertEqual(app.segmented_control(key="view").value, "results")
         self.assertNotIn("open_result", app.session_state)
 
 

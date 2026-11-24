@@ -1,5 +1,5 @@
 """
-Focused tests for Stage A: edge-preservation scores (Edge Precision, Recall, F1).
+Tests for the edge-preservation scores (Edge Precision, Recall, F1).
 
 Run from the "Denoising ad" folder:
 
@@ -33,6 +33,7 @@ from test_single_image_job import PROJECT_DIR
 import app_helpers as helpers
 import edge_metrics
 import main
+from saved_runs import needs_saved_runs
 
 APP = str(PROJECT_DIR / "frontend" / "app.py")
 
@@ -194,17 +195,20 @@ class PipelineTests(unittest.TestCase):
         st.cache_data.clear()
         with use_results_folder(self.results):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
         self.assertEqual(len(app.exception), 0)
 
         _, filters = helpers.get_condition(self.summary, "Gaussian", "Medium")
-        table = next(t.value for t in app.dataframe if "Settings used" in t.value.columns).set_index("Filter")
-        for _, row in filters.iterrows():
-            self.assertEqual(table.loc[helpers.short_name(row["Filter"]), "Edge F1"], f"{row['Edge_F1_mean']:.3f}")
-
+        # Edge scores are in the Details tab, not among the headline numbers
         details = next(t.value for t in app.dataframe if "Edge Recall" in t.value.columns)
         self.assertEqual(list(details["Filter"])[-1], "Noisy (no filter)")
-        self.assertIn("Edge F1", [metric.label for metric in app.metric])
+        by_filter = details.set_index("Filter")
+        for _, row in filters.iterrows():
+            self.assertEqual(by_filter.loc[helpers.short_name(row["Filter"]), "Edge F1"], f"{row['Edge_F1_mean']:.3f}")
+        self.assertEqual([metric.label for metric in app.metric][:2], ["PSNR", "SSIM"])
+        self.assertNotIn("Edge F1", [metric.label for metric in app.metric])
+        self.assertIn("strong noise creates edges almost everywhere", " ".join(w.value for w in app.warning))
         image_table = next(t.value for t in app.dataframe if "Best on this image" in t.value.columns)
         self.assertEqual(image_table.set_index("Filter").loc["Noisy (no filter)", "Edge F1"],
                          f"{self.rows.set_index('Filter').loc['Noisy (Baseline)', 'Edge_F1']:.3f}")
@@ -252,6 +256,7 @@ class OverviewMetricTests(unittest.TestCase):
         st.cache_data.clear()
         with use_results_folder(self.results):
             app = AppTest.from_file(APP, default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
             self.assertEqual(len(app.exception), 0)
             chooser = app.radio(key="overview_metric")
@@ -264,7 +269,7 @@ class OverviewMetricTests(unittest.TestCase):
                 app.run()
                 self.assertEqual(len(app.exception), 0)
                 self.assertIn(f"Winner decided by: {metric}", " ".join(m.value for m in app.markdown))
-                overview = app.dataframe[0].value
+                overview = next(t.value for t in app.dataframe if "Filtering helped?" in t.value.columns)
                 filters_only = self.summary[~self.summary["Filter"].isin(helpers.BASELINE_NAMES)]
                 best = filters_only.loc[filters_only.groupby(["Noise_Type", "Noise_Level"])[column].idxmax()]
                 for _, row in best.iterrows():
@@ -278,18 +283,20 @@ class OverviewMetricTests(unittest.TestCase):
 
 
 class OlderResultsTests(unittest.TestCase):
+    @needs_saved_runs('result13')
     def test_older_full_run_shows_not_measured(self):
         # result13: an older 68-image run over all 12 noise conditions, without edge scores
         st.cache_data.clear()
         app = AppTest.from_file(APP, default_timeout=60)
+        app.session_state["view"] = "results"  # the app now opens on Home
         app.session_state["open_result"] = {"run": "result13", "noise_type": "Gaussian", "noise_level": "High"}
         app.run()
         self.assertEqual(len(app.exception), 0)
         self.assertEqual(list(app.radio(key="overview_metric").options), ["PSNR", "SSIM"])
         self.assertIn("Edge F1 was not measured", " ".join(c.value for c in app.caption))
-        table = next(t.value for t in app.dataframe if "Settings used" in t.value.columns)
-        self.assertEqual(set(table["Average Edge F1"]), {helpers.NOT_MEASURED})
-        self.assertEqual(next(m for m in app.metric if "Edge F1" in m.label).value, helpers.NOT_MEASURED)
+        details = next(t.value for t in app.dataframe if "Edge Recall" in t.value.columns)
+        self.assertEqual(set(details["Edge F1"]), {helpers.NOT_MEASURED})
+        self.assertIn("Edge scores were not measured", " ".join(c.value for c in app.caption))
 
     def test_filtering_helped_compares_with_the_unfiltered_image(self):
         baseline = pd.Series({"PSNR_mean": 30.0})

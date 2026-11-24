@@ -1,5 +1,5 @@
 """
-Focused tests for Stage 2: one-image experiments from the frontend.
+Tests for one-image experiments started from the frontend.
 
 Run from the "Denoising ad" folder:
 
@@ -38,6 +38,10 @@ import app_helpers as helpers
 import experiment_job as jobs
 import job_runner
 import main
+
+# Lets tests skip cleanly when a locally saved run is missing
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # for saved_runs
+from saved_runs import needs_saved_runs
 
 
 def make_job(**changes):
@@ -129,6 +133,7 @@ class RealSingleImageJobTests(unittest.TestCase):
         self.assertEqual(set(self.rows["Noise_Level"]), {"Low"})
         self.assertEqual(len(self.rows), 7)
 
+    @needs_saved_runs('result13')
     def test_seed_and_scores_match_full_dataset_run(self):
         self.assertEqual(self.seeds, [("Speckle", 0.01, 2242)])
         saved = pd.read_csv(PROJECT_DIR / "results" / "result13" / "experiment_results.csv")
@@ -229,8 +234,9 @@ class FrontendTests(unittest.TestCase):
                 mock.patch.object(job_runner, "start_job", return_value="job-1") as start, \
                 mock.patch.object(job_runner, "job_state", return_value={"state": "running"}):
             app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+            app.session_state["view"] = "results"  # the app now opens on Home
             app.run()
-            app.radio(key="view").set_value("Run Experiment").run()
+            app.segmented_control(key="view").set_value("run").run()
             self.assertEqual(len(app.exception), 0)
 
             app.selectbox(key="run_dataset").set_value("Set12").run()
@@ -280,6 +286,7 @@ class FrontendTests(unittest.TestCase):
                     mock.patch.object(helpers, "comparison_images",
                                       functools.partial(helpers.comparison_images, results_dir=results)):
                 app = AppTest.from_file(str(PROJECT_DIR / "frontend" / "app.py"), default_timeout=30)
+                app.session_state["view"] = "results"  # the app now opens on Home
                 app.session_state["open_result"] = {
                     "run": status["result"],
                     "noise_type": "Speckle",
@@ -290,11 +297,11 @@ class FrontendTests(unittest.TestCase):
             st.cache_data.clear()
 
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual(app.radio(key="view").value, "Results")
+        self.assertEqual(app.segmented_control(key="view").value, "results")
         self.assertEqual(app.selectbox(key="saved_run").value, status["result"])
         self.assertEqual(app.subheader[0].value, "Filter tested: Lee")
         self.assertEqual(len(app.dataframe[0].value), 1)
-        page_text = " ".join(item.value for item in app.info)
+        page_text = " ".join(item.value for item in app.caption)  # the verdict notes this in a caption
         self.assertIn("one image", page_text)
         self.assertNotIn("Clear result", " ".join(item.value for item in app.success))
 
