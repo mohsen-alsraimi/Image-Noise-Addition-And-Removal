@@ -1,0 +1,972 @@
+{
+  "schema_version": 1,
+  "run": {
+    "result_directory": "result12",
+    "status": "completed",
+    "started_at": "2026-11-23T23:59:02+03:00",
+    "finished_at": "2026-11-23T23:59:52+03:00",
+    "mode": "tuned_parameters"
+  },
+  "required_to_rerun": {
+    "dataset": {
+      "name": "BSD68",
+      "location": "dataset/BSD68",
+      "max_images_setting": 1,
+      "images_processed": 1,
+      "preprocessing": "cv2.imread grayscale, converted to float32, divided by 255",
+      "pixel_hash": "SHA-256 of each loaded float32 image",
+      "images": [
+        {
+          "index": 0,
+          "filename": "test001.png",
+          "width": 321,
+          "height": 481,
+          "pixel_sha256": "65dabacdbfffc4e6fc0d3b27ca602f4891c207132645dcfc5ebec511dd1367b0"
+        }
+      ]
+    },
+    "noise": {
+      "levels": {
+        "Gaussian": {
+          "Low": 15,
+          "Medium": 25,
+          "High": 50
+        },
+        "Salt-and-Pepper": {
+          "Low": 0.05,
+          "Medium": 0.1,
+          "High": 0.2
+        },
+        "Speckle": {
+          "Low": 0.01,
+          "Medium": 0.04,
+          "High": 0.1
+        },
+        "Poisson": {
+          "Low": 100,
+          "Medium": 30,
+          "High": 10
+        }
+      },
+      "parameter_meaning": {
+        "Gaussian": "standard deviation on the 0-255 scale",
+        "Salt-and-Pepper": "fraction of pixels affected",
+        "Speckle": "variance of the multiplicative noise",
+        "Poisson": "peak photon count (lower means stronger noise)"
+      },
+      "seed_policy": {
+        "base_seed": 42,
+        "formula": "base_seed + image_index * 1000 + noise_index * 100 + level_index",
+        "from_this_file": "base_seed + image_index * 1000 + seed_offset"
+      }
+    },
+    "filters_executed": [
+      "Gaussian Filter",
+      "Median Filter",
+      "Bilateral Filter",
+      "NLM Filter",
+      "Lee Filter",
+      "TV Filter"
+    ],
+    "parameter_source": {
+      "mode": "tuned",
+      "file": "best_parameters.json",
+      "file_sha256": "527fcf91d52f51286a031dca1faa354f5cbbe504cc2158963740581b1bd8dd5b",
+      "values": "The actual values are recorded in conditions below."
+    },
+    "conditions": [
+      {
+        "noise_type": "Gaussian",
+        "level": "Low",
+        "noise_value": 15,
+        "noise_index": 0,
+        "level_index": 0,
+        "seed_offset": 0,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.1
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.1,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 5
+            },
+            "resolved": {
+              "window_size": 5,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.03
+            },
+            "resolved": {
+              "weight": 0.03
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Gaussian",
+        "level": "Medium",
+        "noise_value": 25,
+        "noise_index": 0,
+        "level_index": 1,
+        "seed_offset": 1,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.07
+            },
+            "resolved": {
+              "weight": 0.07
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Gaussian",
+        "level": "High",
+        "noise_value": 50,
+        "noise_index": 0,
+        "level_index": 2,
+        "seed_offset": 2,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            },
+            "resolved": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 7
+            },
+            "resolved": {
+              "kernel_size": 7
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Salt-and-Pepper",
+        "level": "Low",
+        "noise_value": 0.05,
+        "noise_index": 1,
+        "level_index": 0,
+        "seed_offset": 100,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.15
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.15
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Salt-and-Pepper",
+        "level": "Medium",
+        "noise_value": 0.1,
+        "noise_index": 1,
+        "level_index": 1,
+        "seed_offset": 101,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            },
+            "resolved": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.2
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.2
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Salt-and-Pepper",
+        "level": "High",
+        "noise_value": 0.2,
+        "noise_index": 1,
+        "level_index": 2,
+        "seed_offset": 102,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            },
+            "resolved": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.2
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.2
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Speckle",
+        "level": "Low",
+        "noise_value": 0.01,
+        "noise_index": 2,
+        "level_index": 0,
+        "seed_offset": 200,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 3,
+              "sigma": 0.5
+            },
+            "resolved": {
+              "kernel_size": 3,
+              "sigma": 0.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.1
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.1,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 5,
+              "speckle_variance": 0.01
+            },
+            "resolved": {
+              "window_size": 5,
+              "speckle_variance": 0.01
+            },
+            "model": "multiplicative speckle"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.03
+            },
+            "resolved": {
+              "weight": 0.03
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Speckle",
+        "level": "Medium",
+        "noise_value": 0.04,
+        "noise_index": 2,
+        "level_index": 1,
+        "seed_offset": 201,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 5
+            },
+            "resolved": {
+              "kernel_size": 5
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7,
+              "speckle_variance": 0.04
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": 0.04
+            },
+            "model": "multiplicative speckle"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Speckle",
+        "level": "High",
+        "noise_value": 0.1,
+        "noise_index": 2,
+        "level_index": 2,
+        "seed_offset": 202,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            },
+            "resolved": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 5
+            },
+            "resolved": {
+              "kernel_size": 5
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.15
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.15
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7,
+              "speckle_variance": 0.1
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": 0.1
+            },
+            "model": "multiplicative speckle"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Poisson",
+        "level": "Low",
+        "noise_value": 100,
+        "noise_index": 3,
+        "level_index": 0,
+        "seed_offset": 300,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 3
+            },
+            "resolved": {
+              "kernel_size": 3
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.07
+            },
+            "resolved": {
+              "weight": 0.07
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Poisson",
+        "level": "Medium",
+        "noise_value": 30,
+        "noise_index": 3,
+        "level_index": 1,
+        "seed_offset": 301,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            },
+            "resolved": {
+              "kernel_size": 5,
+              "sigma": 1.0
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 5
+            },
+            "resolved": {
+              "kernel_size": 5
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      },
+      {
+        "noise_type": "Poisson",
+        "level": "High",
+        "noise_value": 10,
+        "noise_index": 3,
+        "level_index": 2,
+        "seed_offset": 302,
+        "filters": {
+          "Gaussian Filter": {
+            "supplied": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            },
+            "resolved": {
+              "kernel_size": 7,
+              "sigma": 1.5
+            }
+          },
+          "Median Filter": {
+            "supplied": {
+              "kernel_size": 7
+            },
+            "resolved": {
+              "kernel_size": 7
+            }
+          },
+          "Bilateral Filter": {
+            "supplied": {
+              "diameter": 9,
+              "sigma_color": 0.2
+            },
+            "resolved": {
+              "diameter": 9,
+              "sigma_color": 0.2,
+              "sigma_space": 75
+            }
+          },
+          "NLM Filter": {
+            "supplied": {
+              "h": 0.1
+            },
+            "resolved": {
+              "patch_size": 5,
+              "patch_distance": 6,
+              "h": 0.1
+            },
+            "h_mode": "explicit"
+          },
+          "Lee Filter": {
+            "supplied": {
+              "window_size": 7
+            },
+            "resolved": {
+              "window_size": 7,
+              "speckle_variance": null
+            },
+            "model": "general adaptive smoother"
+          },
+          "TV Filter": {
+            "supplied": {
+              "weight": 0.1
+            },
+            "resolved": {
+              "weight": 0.1
+            }
+          }
+        }
+      }
+    ],
+    "code": {
+      "git": {
+        "commit": "f5974afac96a6b41b4bc0cd74170bfb3d8ab475d",
+        "working_tree": "modified_and_untracked",
+        "code_matches_commit": false,
+        "modified_file_count": 4,
+        "modified_files": [
+          "Denoising ad/EXPERIMENTS.md",
+          "Denoising ad/filter.py",
+          "Denoising ad/main.py",
+          "Denoising ad/tune_filters.py"
+        ],
+        "untracked_file_count": 9,
+        "untracked_files": [
+          "Denoising ad/run_metadata.py",
+          "Denoising ad/tests/test_execution_time.py",
+          "Denoising ad/tests/test_lee_filter.py",
+          "Denoising ad/tests/test_nlm_filter.py",
+          "Denoising ad/tests/test_run_metadata.py",
+          "Denoising ad/tuning_runs/set12_12images_corrected/best_parameters.json",
+          "Denoising ad/tuning_runs/set12_12images_corrected/tuning_config.json",
+          "Denoising ad/tuning_runs/set12_12images_corrected/tuning_per_image.csv",
+          "Denoising ad/tuning_runs/set12_12images_corrected/tuning_results.csv"
+        ],
+        "generated_files_ignored": 0,
+        "note": "The commit alone does not identify the code used. Compare code_fingerprints as well."
+      },
+      "code_fingerprints": {
+        "add_noise.py": "ec032fa4c5001c170764e6f4f86d15dbcd59a800c5c68b89e0ee9ec5548bc7ae",
+        "filter.py": "8e627a1028845407eaabcbf44fd7eed5b199fe1f37c52683967337a9ab85103a",
+        "main.py": "5ec1c2014f91fc48f3a98844b2c1743c2c5d1ffe6ddcfae6ede40a33f0d9a6b7",
+        "run_metadata.py": "2e18e102021f332fca63b1336485bfd73f42009dda002a6de7224e959367b5c4"
+      }
+    }
+  },
+  "useful_for_interpretation": {
+    "environment": {
+      "python": "3.12.10",
+      "libraries": {
+        "numpy": "2.5.5",
+        "opencv": "5.1.0",
+        "scikit-image": "0.26.0",
+        "scipy": "1.18.1",
+        "PyWavelets": "1.8.0",
+        "pandas": "3.1.1",
+        "matplotlib": "3.11.2"
+      },
+      "operating_system": "Windows",
+      "os_release": "11",
+      "machine": "AMD64"
+    },
+    "evaluation": {
+      "metrics": [
+        "PSNR",
+        "SSIM"
+      ],
+      "image_data_range": [
+        0.0,
+        1.0
+      ],
+      "psnr": "scikit-image peak_signal_noise_ratio, data_range=1.0",
+      "ssim": "scikit-image structural_similarity defaults, data_range=1.0",
+      "execution_time_unit": "seconds",
+      "execution_time_scope": "Only the filter function call, including work inside it",
+      "aggregation": "Mean and sample standard deviation across images, per noise type, noise level, and filter",
+      "noisy_baseline_time": "0 is a placeholder, not a measurement"
+    },
+    "limitations": [
+      "Results may differ across computers and library versions.",
+      "Timing is one measurement per image and depends on system load.",
+      "OpenCV may use multiple threads, which can affect timing.",
+      "NLM estimates noise inside the timed call only when h is omitted."
+    ]
+  }
+}

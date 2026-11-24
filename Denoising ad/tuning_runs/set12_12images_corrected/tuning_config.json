@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "run": {
+    "directory": "set12_12images_corrected",
+    "status": "completed",
+    "every_condition_completed": true,
+    "started_at": "2026-11-23T21:58:02+03:00",
+    "finished_at": "2026-11-23T22:00:13+03:00",
+    "activated_for_experiments": false,
+    "note": "These parameters are saved separately. The experiment runner still reads the project-level best_parameters.json."
+  },
+  "dataset": {
+    "name": "Set12",
+    "max_tuning_images_setting": 12,
+    "images_evaluated": 12,
+    "preprocessing": "cv2.imread grayscale, converted to float32, divided by 255",
+    "images": [
+      {
+        "index": 0,
+        "filename": "01.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "dd35f31e58eed0168729cc7050db62837b55a9c576159295a05317ae4b831b85"
+      },
+      {
+        "index": 1,
+        "filename": "02.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "ad4d8340c80574d868840293ecef6ea15462da2d044d609514fb692d2abe141b"
+      },
+      {
+        "index": 2,
+        "filename": "03.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "8e04cec183cb368d07e825bf92d697141324c4a506e0e6a04f3e012bc1f6349a"
+      },
+      {
+        "index": 3,
+        "filename": "04.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "a81c3fc0f227d0b9b157d919ad0ca1d386111674fc1acd886ff4b3f227b5f4e4"
+      },
+      {
+        "index": 4,
+        "filename": "05.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "c6a7034621ff0eea2f4a79ad1a3381d6d729a81315bd6733469c6a49a4642f43"
+      },
+      {
+        "index": 5,
+        "filename": "06.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "4ba142456d74e03d8ea989712e601d5d0bc12c65da0ebda8f5e4f40bb3245eda"
+      },
+      {
+        "index": 6,
+        "filename": "07.png",
+        "width": 256,
+        "height": 256,
+        "pixel_sha256": "e33b79e6da1dbff742cce741f322ef72b18913e2c13ad3e8d87a36342006a402"
+      },
+      {
+        "index": 7,
+        "filename": "08.png",
+        "width": 512,
+        "height": 512,
+        "pixel_sha256": "d1bf9be9eb4f9e324a966fb6c8bcf3417a7864fbd67b8877b0dfdbc3ec544c51"
+      },
+      {
+        "index": 8,
+        "filename": "09.png",
+        "width": 512,
+        "height": 512,
+        "pixel_sha256": "300ee5ebcbe8b04e2a745f4704794599294615ae310157ed4a0b9eda742f82e2"
+      },
+      {
+        "index": 9,
+        "filename": "10.png",
+        "width": 512,
+        "height": 512,
+        "pixel_sha256": "2df0b17e71353df154518ede74effbb5fbd60231b5513e06640707fe19396ff3"
+      },
+      {
+        "index": 10,
+        "filename": "11.png",
+        "width": 512,
+        "height": 512,
+        "pixel_sha256": "eab2f26fc1937d66a2837af387f5ccb87dbe8c6e264e1ba279347e2e870b4f3c"
+      },
+      {
+        "index": 11,
+        "filename": "12.png",
+        "width": 512,
+        "height": 512,
+        "pixel_sha256": "a635f3bf16cd193e50ae0de447ed7dfd4d32098f7078aafe0c2406253faace20"
+      }
+    ]
+  },
+  "noise": {
+    "levels": {
+      "Gaussian": {
+        "Low": 15,
+        "Medium": 25,
+        "High": 50
+      },
+      "Salt-and-Pepper": {
+        "Low": 0.05,
+        "Medium": 0.1,
+        "High": 0.2
+      },
+      "Speckle": {
+        "Low": 0.01,
+        "Medium": 0.04,
+        "High": 0.1
+      },
+      "Poisson": {
+        "Low": 100,
+        "Medium": 30,
+        "High": 10
+      }
+    },
+    "seed_policy": {
+      "base_seed": 42,
+      "formula": "base_seed + image_index * 1000 + noise_index * 100 + level_index",
+      "noise_order": [
+        "Gaussian",
+        "Salt-and-Pepper",
+        "Speckle",
+        "Poisson"
+      ]
+    }
+  },
+  "filters": [
+    "Gaussian Filter",
+    "Median Filter",
+    "Bilateral Filter",
+    "NLM Filter",
+    "Lee Filter",
+    "TV Filter"
+  ],
+  "candidate_grid": {
+    "Gaussian Filter": [
+      {
+        "kernel_size": 3,
+        "sigma": 0.5
+      },
+      {
+        "kernel_size": 5,
+        "sigma": 1.0
+      },
+      {
+        "kernel_size": 7,
+        "sigma": 1.5
+      }
+    ],
+    "Median Filter": [
+      {
+        "kernel_size": 3
+      },
+      {
+        "kernel_size": 5
+      },
+      {
+        "kernel_size": 7
+      }
+    ],
+    "Bilateral Filter": [
+      {
+        "diameter": 5,
+        "sigma_color": 0.05
+      },
+      {
+        "diameter": 9,
+        "sigma_color": 0.1
+      },
+      {
+        "diameter": 9,
+        "sigma_color": 0.2
+      }
+    ],
+    "NLM Filter": [
+      {
+        "h": 0.1
+      },
+      {
+        "h": 0.15
+      },
+      {
+        "h": 0.2
+      }
+    ],
+    "Lee Filter": [
+      {
+        "window_size": 3
+      },
+      {
+        "window_size": 5
+      },
+      {
+        "window_size": 7
+      }
+    ],
+    "TV Filter": [
+      {
+        "weight": 0.03
+      },
+      {
+        "weight": 0.07
+      },
+      {
+        "weight": 0.1
+      }
+    ]
+  },
+  "selection": {
+    "metric": "highest mean PSNR across all tuning images",
+    "scope": "chosen separately per noise type, level, and filter",
+    "ties": "the earlier candidate in the grid is kept"
+  },
+  "expected_counts": {
+    "noise_conditions": 12,
+    "candidates_per_condition": 18,
+    "candidate_evaluations": 216,
+    "image_evaluations": 2592
+  },
+  "environment": {
+    "python": "3.12.10",
+    "libraries": {
+      "numpy": "2.5.5",
+      "opencv": "5.1.0",
+      "scikit-image": "0.26.0",
+      "scipy": "1.18.1",
+      "PyWavelets": "1.8.0",
+      "pandas": "3.1.1",
+      "matplotlib": "3.11.2"
+    },
+    "operating_system": "Windows",
+    "os_release": "11",
+    "machine": "AMD64"
+  },
+  "code": {
+    "git": {
+      "commit": "f5974afac96a6b41b4bc0cd74170bfb3d8ab475d",
+      "working_tree": "modified_and_untracked",
+      "code_matches_commit": false,
+      "modified_file_count": 4,
+      "modified_files": [
+        "Denoising ad/EXPERIMENTS.md",
+        "Denoising ad/filter.py",
+        "Denoising ad/main.py",
+        "Denoising ad/tune_filters.py"
+      ],
+      "untracked_file_count": 5,
+      "untracked_files": [
+        "Denoising ad/run_metadata.py",
+        "Denoising ad/tests/test_execution_time.py",
+        "Denoising ad/tests/test_lee_filter.py",
+        "Denoising ad/tests/test_nlm_filter.py",
+        "Denoising ad/tests/test_run_metadata.py"
+      ],
+      "generated_files_ignored": 0,
+      "note": "The commit alone does not identify the code used. Compare code_fingerprints as well."
+    },
+    "code_fingerprints": {
+      "add_noise.py": "ec032fa4c5001c170764e6f4f86d15dbcd59a800c5c68b89e0ee9ec5548bc7ae",
+      "filter.py": "8e627a1028845407eaabcbf44fd7eed5b199fe1f37c52683967337a9ab85103a",
+      "main.py": "38fbe24b70afff1af6e361a0b82739105f1f89c4740bb330100d71f4802aecae",
+      "run_metadata.py": "2e18e102021f332fca63b1336485bfd73f42009dda002a6de7224e959367b5c4",
+      "tune_filters.py": "e2e9e4ed404ba60fc7eff31339f3f09b689f95321788f33b24782cf2b661ecd5"
+    }
+  }
+}

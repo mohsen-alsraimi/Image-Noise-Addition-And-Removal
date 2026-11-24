@@ -27,6 +27,12 @@ from filter import (
     apply_tv_filter
 )
 
+from run_metadata import (
+    build_run_config,
+    mark_run_completed,
+    save_run_config
+)
+
 
 # --------------------------------------------------
 # 1. PROJECT SETTINGS
@@ -36,7 +42,7 @@ DATASET_PATH = Path("dataset/BSD68")
 RESULTS_PATH = Path("results")
 
 BASE_SEED = 42
-MAX_IMAGES = None  # Set to None to process the full dataset
+MAX_IMAGES = None# Set to None to process the full dataset
 
 TUNED_PARAMETERS_FILE = Path("best_parameters.json")
 
@@ -160,16 +166,52 @@ filters = {
 # 6. RUN EXPERIMENTS
 # --------------------------------------------------
 
-def run_experiments(images):
+def load_tuned_parameters():
+
+    if TUNED_PARAMETERS_FILE is None:
+        return None
+
+    with open(TUNED_PARAMETERS_FILE, encoding="utf-8") as file:
+        return json.load(file)
+
+
+def noise_seed(image_index, noise_index, level_index):
+
+    return (
+        BASE_SEED
+        + image_index * 1000
+        + noise_index * 100
+        + level_index
+    )
+
+
+def get_filter_parameters(filter_name, filter_function, noise_type,
+                          level_name, noise_value, tuned_parameters):
+
+    params = {}
+
+    if tuned_parameters is not None:
+        params = tuned_parameters[
+            noise_type
+        ][level_name][filter_name].copy()
+
+    if (
+        filter_name == "Lee Filter"
+        and noise_type == "Speckle"
+        and "speckle_variance"
+        in inspect.signature(filter_function).parameters
+    ):
+        params["speckle_variance"] = noise_value
+
+    return params
+
+
+def run_experiments(images, tuned_parameters=None):
 
     results = []
 
-    tuned_parameters = None
-
-    if TUNED_PARAMETERS_FILE is not None:
-        with open(TUNED_PARAMETERS_FILE, encoding="utf-8") as file:
-            tuned_parameters = json.load(file)
-
+    if tuned_parameters is None:
+        tuned_parameters = load_tuned_parameters()
 
     noise_types = list(NOISE_LEVELS.keys())
 
@@ -184,12 +226,7 @@ def run_experiments(images):
             ):
 
                 # Generate one noisy image for all filters
-                seed = (
-                    BASE_SEED
-                    + image_index * 1000
-                    + noise_index * 100
-                    + level_index
-                )
+                seed = noise_seed(image_index, noise_index, level_index)
 
                 noisy_image = generate_noisy_image(
                     original_image,
@@ -218,32 +255,26 @@ def run_experiments(images):
                 # Apply every filter to the same noisy image
                 for filter_name, filter_function in filters.items():
 
+                    params = get_filter_parameters(
+                        filter_name,
+                        filter_function,
+                        noise_type,
+                        level_name,
+                        noise_value,
+                        tuned_parameters
+                    )
+
+                    filter_input = noisy_image.copy()
+
+                    # Time only the filter call
                     start_time = time.perf_counter()
-
-                    
-                    params = {}
-
-                    if tuned_parameters is not None:
-                            params = tuned_parameters[
-                                noise_type
-                            ][level_name][filter_name].copy()
-
-                    if (
-                            filter_name == "Lee Filter"
-                            and noise_type == "Speckle"
-                            and "speckle_variance"
-                            in inspect.signature(filter_function).parameters
-                    ):
-                            params["speckle_variance"] = noise_value
-
                     filtered_image = filter_function(
-                            noisy_image.copy(),
+                            filter_input,
                             **params
-                   )
-                    
+                    )
+                    execution_time = time.perf_counter() - start_time
 
                     filtered_images[filter_name] = filtered_image.copy()
-                    execution_time = time.perf_counter() - start_time
 
                     psnr, ssim = calculate_metrics(
                         original_image,
@@ -527,23 +558,48 @@ def next_results_path():
     return RESULTS_PATH / f"result{max(run_numbers, default=0) + 1}"
 
 
+def build_current_run_config(images, tuned_parameters):
+
+    return build_run_config(
+        images=images,
+        dataset_path=DATASET_PATH,
+        results_path=RESULTS_PATH,
+        max_images=MAX_IMAGES,
+        noise_levels=NOISE_LEVELS,
+        base_seed=BASE_SEED,
+        filters=filters,
+        tuned_parameters=tuned_parameters,
+        tuned_file=TUNED_PARAMETERS_FILE,
+        get_seed=noise_seed,
+        get_parameters=get_filter_parameters
+    )
+
+
 def main():
 
     images = load_dataset()
 
+    tuned_parameters = load_tuned_parameters()
+
     global RESULTS_PATH
     RESULTS_PATH = next_results_path()
+
+    # Save settings first, so a failed save stops the run early
+    run_config = build_current_run_config(images, tuned_parameters)
+    save_run_config(RESULTS_PATH, run_config)
 
     save_noise_comparison(
     images[0][1],
     images[0][0]
-    ) 
+    )
 
-    results = run_experiments(images)
+    results = run_experiments(images, tuned_parameters)
 
     save_results(results)
 
     create_graphs(results)
+
+    mark_run_completed(RESULTS_PATH, run_config)
 
     print("\nAll experiments completed!")
 

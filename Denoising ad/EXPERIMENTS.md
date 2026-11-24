@@ -1,4 +1,3 @@
-
 # Image Noise Addition and Removal
 ## Experiment Documentation
 

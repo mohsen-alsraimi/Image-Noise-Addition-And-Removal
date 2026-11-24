@@ -1,0 +1,217 @@
+Noise_Type,Noise_Level,Filter,Parameters,Mean_PSNR,Mean_SSIM
+Gaussian,Low,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",27.874164398321827,0.6948254672998461
+Gaussian,Low,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",27.585726577749753,0.808293463225355
+Gaussian,Low,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",25.72969018877679,0.7800708455498518
+Gaussian,Low,Median Filter,"{""kernel_size"": 3}",27.79016057264828,0.7466849123035847
+Gaussian,Low,Median Filter,"{""kernel_size"": 5}",26.09770624696795,0.7469248765499703
+Gaussian,Low,Median Filter,"{""kernel_size"": 7}",24.642840733967457,0.7119611242083216
+Gaussian,Low,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",26.901558395987806,0.660385104730471
+Gaussian,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",29.68879072198226,0.8122223631855213
+Gaussian,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",28.571231799853084,0.8185658304466569
+Gaussian,Low,NLM Filter,"{""h"": 0.1}",28.57896308091695,0.8023468320990025
+Gaussian,Low,NLM Filter,"{""h"": 0.15}",26.31820929300307,0.7449999861339625
+Gaussian,Low,NLM Filter,"{""h"": 0.2}",24.891430108597024,0.7015862485183321
+Gaussian,Low,Lee Filter,"{""window_size"": 3}",29.073364859250592,0.7596142276449588
+Gaussian,Low,Lee Filter,"{""window_size"": 5}",29.34627141457211,0.801539656921114
+Gaussian,Low,Lee Filter,"{""window_size"": 7}",28.925905221666323,0.8052512943197471
+Gaussian,Low,TV Filter,"{""weight"": 0.03}",30.271623272081154,0.8263403087975432
+Gaussian,Low,TV Filter,"{""weight"": 0.07}",29.616113652870084,0.8469619291433483
+Gaussian,Low,TV Filter,"{""weight"": 0.1}",28.506151938551536,0.8250021886543099
+Gaussian,Medium,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",23.915502419732064,0.524529593502331
+Gaussian,Medium,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",26.375175161241213,0.7159708375488769
+Gaussian,Medium,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",25.28662009749129,0.733377317177443
+Gaussian,Medium,Median Filter,"{""kernel_size"": 3}",25.456422586616302,0.6124531021186099
+Gaussian,Medium,Median Filter,"{""kernel_size"": 5}",25.16840155018721,0.6704222068503891
+Gaussian,Medium,Median Filter,"{""kernel_size"": 7}",24.133581753610898,0.6656228739335255
+Gaussian,Medium,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",21.29123372905035,0.42743361442908273
+Gaussian,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",24.35038956930491,0.5486792041695745
+Gaussian,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",26.94687271649006,0.7216078562451661
+Gaussian,Medium,NLM Filter,"{""h"": 0.1}",28.147878241127668,0.7855042974672406
+Gaussian,Medium,NLM Filter,"{""h"": 0.15}",26.189175467279455,0.7419471922650184
+Gaussian,Medium,NLM Filter,"{""h"": 0.2}",24.80768393227977,0.7009550453432327
+Gaussian,Medium,Lee Filter,"{""window_size"": 3}",24.663216726095616,0.5660558960820553
+Gaussian,Medium,Lee Filter,"{""window_size"": 5}",25.375027037323857,0.6087159800438229
+Gaussian,Medium,Lee Filter,"{""window_size"": 7}",25.38952529831433,0.6189030277106538
+Gaussian,Medium,TV Filter,"{""weight"": 0.03}",24.89726463490797,0.5750179247001822
+Gaussian,Medium,TV Filter,"{""weight"": 0.07}",27.993380070661548,0.786431092520209
+Gaussian,Medium,TV Filter,"{""weight"": 0.1}",27.605609777938085,0.7874260731059165
+Gaussian,High,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",18.45612003749524,0.31217415326459425
+Gaussian,High,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",23.24992234380824,0.5220647804155932
+Gaussian,High,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",23.63441777854642,0.6011964400842931
+Gaussian,High,Median Filter,"{""kernel_size"": 3}",21.057122556640945,0.39562117753826903
+Gaussian,High,Median Filter,"{""kernel_size"": 5}",22.75345680034962,0.49473699945395594
+Gaussian,High,Median Filter,"{""kernel_size"": 7}",22.730772256168652,0.5415003085541212
+Gaussian,High,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",14.972932168517099,0.21752368939527475
+Gaussian,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",16.25283673300613,0.24440132398531866
+Gaussian,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",19.58469071092173,0.3384813912368326
+Gaussian,High,NLM Filter,"{""h"": 0.1}",19.57568025081677,0.363903449775879
+Gaussian,High,NLM Filter,"{""h"": 0.15}",24.38088378752133,0.592978403254019
+Gaussian,High,NLM Filter,"{""h"": 0.2}",23.9354528377504,0.6345963028553773
+Gaussian,High,Lee Filter,"{""window_size"": 3}",18.92844950773569,0.33003195241196764
+Gaussian,High,Lee Filter,"{""window_size"": 5}",19.7219111707154,0.34950814518893775
+Gaussian,High,Lee Filter,"{""window_size"": 7}",19.900696789486126,0.3486424206642292
+Gaussian,High,TV Filter,"{""weight"": 0.03}",17.30313761397052,0.27916640151353894
+Gaussian,High,TV Filter,"{""weight"": 0.07}",20.920616632986313,0.4039292024925871
+Gaussian,High,TV Filter,"{""weight"": 0.1}",23.16843005644321,0.5233303717927905
+Salt-and-Pepper,Low,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",21.942686032020926,0.5203845560837558
+Salt-and-Pepper,Low,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",25.32670463020479,0.6705627817850273
+Salt-and-Pepper,Low,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",24.720554811505718,0.6977797267440214
+Salt-and-Pepper,Low,Median Filter,"{""kernel_size"": 3}",29.943872252119704,0.8976117568702381
+Salt-and-Pepper,Low,Median Filter,"{""kernel_size"": 5}",26.65444455296389,0.8133344323145808
+Salt-and-Pepper,Low,Median Filter,"{""kernel_size"": 7}",24.899572434568707,0.7524276758995562
+Salt-and-Pepper,Low,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",18.305191624246508,0.3992765973495013
+Salt-and-Pepper,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",18.39889641627976,0.38521472139391233
+Salt-and-Pepper,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",19.88818335775725,0.44863565194023797
+Salt-and-Pepper,Low,NLM Filter,"{""h"": 0.1}",23.62617979838504,0.6331442328240205
+Salt-and-Pepper,Low,NLM Filter,"{""h"": 0.15}",25.60194611222248,0.705812620945314
+Salt-and-Pepper,Low,NLM Filter,"{""h"": 0.2}",24.504359498746748,0.6858407847988612
+Salt-and-Pepper,Low,Lee Filter,"{""window_size"": 3}",20.25396962782793,0.4695048534497017
+Salt-and-Pepper,Low,Lee Filter,"{""window_size"": 5}",21.742164938405946,0.5213674984587628
+Salt-and-Pepper,Low,Lee Filter,"{""window_size"": 7}",22.42683563255997,0.549508563366549
+Salt-and-Pepper,Low,TV Filter,"{""weight"": 0.03}",19.72573566936632,0.43727200701627095
+Salt-and-Pepper,Low,TV Filter,"{""weight"": 0.07}",21.60987675020024,0.4896420454665715
+Salt-and-Pepper,Low,TV Filter,"{""weight"": 0.1}",22.8974580473201,0.5349089894770231
+Salt-and-Pepper,Medium,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",18.90137428888562,0.3573958525396594
+Salt-and-Pepper,Medium,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",23.34128241658226,0.5494968295864312
+Salt-and-Pepper,Medium,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",23.525752240760287,0.6154269079193342
+Salt-and-Pepper,Medium,Median Filter,"{""kernel_size"": 3}",29.05024957130163,0.8881539743902717
+Salt-and-Pepper,Medium,Median Filter,"{""kernel_size"": 5}",26.402148817914824,0.8093840411377401
+Salt-and-Pepper,Medium,Median Filter,"{""kernel_size"": 7}",24.753654562001234,0.7497275940680295
+Salt-and-Pepper,Medium,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",15.260631980452514,0.2440773998264946
+Salt-and-Pepper,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",15.369567447322835,0.23283805414244885
+Salt-and-Pepper,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",16.705222305884178,0.27439666284314457
+Salt-and-Pepper,Medium,NLM Filter,"{""h"": 0.1}",18.902030830122268,0.4005261756227301
+Salt-and-Pepper,Medium,NLM Filter,"{""h"": 0.15}",23.798919950962887,0.59562883520744
+Salt-and-Pepper,Medium,NLM Filter,"{""h"": 0.2}",23.802920444469446,0.6355426576824182
+Salt-and-Pepper,Medium,Lee Filter,"{""window_size"": 3}",17.957148022081697,0.3287933615276406
+Salt-and-Pepper,Medium,Lee Filter,"{""window_size"": 5}",19.314744973761673,0.3763724944142785
+Salt-and-Pepper,Medium,Lee Filter,"{""window_size"": 7}",19.81934767028716,0.3931872978179021
+Salt-and-Pepper,Medium,TV Filter,"{""weight"": 0.03}",16.6846190438805,0.27923167608892446
+Salt-and-Pepper,Medium,TV Filter,"{""weight"": 0.07}",18.70893214706285,0.3320969782377409
+Salt-and-Pepper,Medium,TV Filter,"{""weight"": 0.1}",20.27686764414732,0.38668070380873987
+Salt-and-Pepper,High,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",15.824891423409705,0.22781174409798047
+Salt-and-Pepper,High,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",20.6634480467749,0.4134550230401233
+Salt-and-Pepper,High,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",21.47076920946378,0.5020421870354291
+Salt-and-Pepper,High,Median Filter,"{""kernel_size"": 3}",26.19934261152734,0.8407635457507029
+Salt-and-Pepper,High,Median Filter,"{""kernel_size"": 5}",25.744275288706515,0.7984752075613852
+Salt-and-Pepper,High,Median Filter,"{""kernel_size"": 7}",24.423466477522364,0.7427855520106134
+Salt-and-Pepper,High,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",12.24404966779415,0.14029310018466404
+Salt-and-Pepper,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",12.333377169944697,0.13237498947135842
+Salt-and-Pepper,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",13.323807729355602,0.14794501862659207
+Salt-and-Pepper,High,NLM Filter,"{""h"": 0.1}",13.517471084269372,0.17062545962579242
+Salt-and-Pepper,High,NLM Filter,"{""h"": 0.15}",18.807092361463447,0.3384820082622387
+Salt-and-Pepper,High,NLM Filter,"{""h"": 0.2}",21.62435336984717,0.47012789600224
+Salt-and-Pepper,High,Lee Filter,"{""window_size"": 3}",15.619259534412999,0.22155843380633633
+Salt-and-Pepper,High,Lee Filter,"{""window_size"": 5}",16.690313195215708,0.24848161578010472
+Salt-and-Pepper,High,Lee Filter,"{""window_size"": 7}",17.012511938183625,0.25123623918776233
+Salt-and-Pepper,High,TV Filter,"{""weight"": 0.03}",13.597004560694485,0.16601831022612742
+Salt-and-Pepper,High,TV Filter,"{""weight"": 0.07}",15.564419093811637,0.20678973859409258
+Salt-and-Pepper,High,TV Filter,"{""weight"": 0.1}",17.14949984618339,0.2499870517892849
+Speckle,Low,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",28.637398449796965,0.7493696071000827
+Speckle,Low,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",27.740990565824692,0.8187575462933676
+Speckle,Low,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",25.777975340547062,0.7833621570611601
+Speckle,Low,Median Filter,"{""kernel_size"": 3}",28.164960209581636,0.7721665131686866
+Speckle,Low,Median Filter,"{""kernel_size"": 5}",26.230435211595733,0.7566952939810152
+Speckle,Low,Median Filter,"{""kernel_size"": 7}",24.69811815233351,0.7187117946851208
+Speckle,Low,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",27.5231422188958,0.7270243075141205
+Speckle,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",29.779800372873385,0.8097545418148329
+Speckle,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",28.577685318236476,0.8116260457671903
+Speckle,Low,NLM Filter,"{""h"": 0.1}",28.560945996686822,0.7994694375815903
+Speckle,Low,NLM Filter,"{""h"": 0.15}",26.321008350394948,0.7435177350294238
+Speckle,Low,NLM Filter,"{""h"": 0.2}",24.896577032092214,0.7008089636195658
+Speckle,Low,Lee Filter,"{""window_size"": 3}",30.454871524772063,0.8228002711635227
+Speckle,Low,Lee Filter,"{""window_size"": 5}",30.570254408704702,0.8559362451354776
+Speckle,Low,Lee Filter,"{""window_size"": 7}",30.190995229468417,0.8579650264075888
+Speckle,Low,TV Filter,"{""weight"": 0.03}",30.42976213055407,0.8258376190145965
+Speckle,Low,TV Filter,"{""weight"": 0.07}",29.586277297134373,0.8429328042207987
+Speckle,Low,TV Filter,"{""weight"": 0.1}",28.710288898616998,0.829761582124514
+Speckle,Medium,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",23.37029812718947,0.5587048567706537
+Speckle,Medium,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",26.12524169623761,0.7102048045440431
+Speckle,Medium,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",25.16848965225056,0.7246917367343458
+Speckle,Medium,Median Filter,"{""kernel_size"": 3}",25.010211043667713,0.622395498908398
+Speckle,Medium,Median Filter,"{""kernel_size"": 5}",24.895475399599125,0.6640613043140275
+Speckle,Medium,Median Filter,"{""kernel_size"": 7}",23.92961755893745,0.6596353763999688
+Speckle,Medium,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",20.46284708463769,0.4859685371041276
+Speckle,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",22.74795913558076,0.562128602158755
+Speckle,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",25.700324606967296,0.6651803672916888
+Speckle,Medium,NLM Filter,"{""h"": 0.1}",27.268482033072846,0.7313657857004817
+Speckle,Medium,NLM Filter,"{""h"": 0.15}",26.011459906472115,0.7271518575226862
+Speckle,Medium,NLM Filter,"{""h"": 0.2}",24.703992377727314,0.6937366547619382
+Speckle,Medium,Lee Filter,"{""window_size"": 3}",26.029276870343864,0.6653385124110782
+Speckle,Medium,Lee Filter,"{""window_size"": 5}",26.783754814603224,0.7345519666033047
+Speckle,Medium,Lee Filter,"{""window_size"": 7}",26.53984437931733,0.7533677515329159
+Speckle,Medium,TV Filter,"{""weight"": 0.03}",23.561293359672487,0.5898978026445916
+Speckle,Medium,TV Filter,"{""weight"": 0.07}",26.723933672063712,0.7116547528295575
+Speckle,Medium,TV Filter,"{""weight"": 0.1}",27.109447973588846,0.7542210706940996
+Speckle,High,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",19.771452433889472,0.42473855977177943
+Speckle,High,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",24.098050145110324,0.6035613143007614
+Speckle,High,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",24.105305344327835,0.6519275606149747
+Speckle,High,Median Filter,"{""kernel_size"": 3}",22.136428660666624,0.5010160630069264
+Speckle,High,Median Filter,"{""kernel_size"": 5}",23.297155219937235,0.5677553742588916
+Speckle,High,Median Filter,"{""kernel_size"": 7}",22.953216684556452,0.5883557395247914
+Speckle,High,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",16.39038072891677,0.34097141761939875
+Speckle,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",17.73438976532655,0.39206378021667526
+Speckle,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",20.823287816169124,0.48316109201473606
+Speckle,High,NLM Filter,"{""h"": 0.1}",20.834840016947723,0.5118656470807753
+Speckle,High,NLM Filter,"{""h"": 0.15}",24.650406065157863,0.6266824281312747
+Speckle,High,NLM Filter,"{""h"": 0.2}",24.039780545961552,0.6453676540105414
+Speckle,High,Lee Filter,"{""window_size"": 3}",22.97746074727284,0.5392360851382495
+Speckle,High,Lee Filter,"{""window_size"": 5}",24.337174177301534,0.625363692912908
+Speckle,High,Lee Filter,"{""window_size"": 7}",24.34467868731971,0.660544505886045
+Speckle,High,TV Filter,"{""weight"": 0.03}",18.757730252374483,0.4228256023507769
+Speckle,High,TV Filter,"{""weight"": 0.07}",22.17440490856322,0.5361175115999764
+Speckle,High,TV Filter,"{""weight"": 0.1}",24.027882453374293,0.6072212857578531
+Poisson,Low,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",26.568908956946274,0.6537291094049217
+Poisson,Low,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",27.27713005228991,0.7829531276416556
+Poisson,Low,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",25.63199411668204,0.7674594763024091
+Poisson,Low,Median Filter,"{""kernel_size"": 3}",27.08606839493288,0.7107643781665508
+Poisson,Low,Median Filter,"{""kernel_size"": 5}",25.84264400245171,0.7254374405461167
+Poisson,Low,Median Filter,"{""kernel_size"": 7}",24.485245828590696,0.6981146817483093
+Poisson,Low,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",24.732696063875647,0.6012573187402614
+Poisson,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",27.801153228757627,0.7288804912730469
+Poisson,Low,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",28.209060417911115,0.7939059472574272
+Poisson,Low,NLM Filter,"{""h"": 0.1}",28.53504932073595,0.7992939699371506
+Poisson,Low,NLM Filter,"{""h"": 0.15}",26.332058298866375,0.7449925647609019
+Poisson,Low,NLM Filter,"{""h"": 0.2}",24.907076027940516,0.7019709276900158
+Poisson,Low,Lee Filter,"{""window_size"": 3}",27.352071970960946,0.701188371930651
+Poisson,Low,Lee Filter,"{""window_size"": 5}",27.861661248349353,0.7371532951606156
+Poisson,Low,Lee Filter,"{""window_size"": 7}",27.677258656253784,0.7416763250663644
+Poisson,Low,TV Filter,"{""weight"": 0.03}",28.332056171661147,0.7450458811403865
+Poisson,Low,TV Filter,"{""weight"": 0.07}",29.129457171856718,0.827366053487007
+Poisson,Low,TV Filter,"{""weight"": 0.1}",28.231160141080863,0.8138002794967858
+Poisson,Medium,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",21.85861421801962,0.46288218706959344
+Poisson,Medium,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",25.428275949176665,0.6588963139277085
+Poisson,Medium,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",24.86607096063204,0.6970136828506432
+Poisson,Medium,Median Filter,"{""kernel_size"": 3}",23.80391590247669,0.5413580907040959
+Poisson,Medium,Median Filter,"{""kernel_size"": 5}",24.2385573571442,0.6053293036393684
+Poisson,Medium,Median Filter,"{""kernel_size"": 7}",23.530030610823076,0.6117723240686664
+Poisson,Medium,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",18.729269676828014,0.3680162904610957
+Poisson,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",20.8715627731189,0.4471693974075728
+Poisson,Medium,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",24.44123343684522,0.5887046229627225
+Poisson,Medium,NLM Filter,"{""h"": 0.1}",26.48017110836572,0.6881129701720403
+Poisson,Medium,NLM Filter,"{""h"": 0.15}",25.939604244416245,0.7192815810683341
+Poisson,Medium,NLM Filter,"{""h"": 0.2}",24.677238780153218,0.6918703919904848
+Poisson,Medium,Lee Filter,"{""window_size"": 3}",22.240351281377343,0.4973412193822173
+Poisson,Medium,Lee Filter,"{""window_size"": 5}",22.987091922660536,0.5264629790529533
+Poisson,Medium,Lee Filter,"{""window_size"": 7}",23.1185826042129,0.5289367110714654
+Poisson,Medium,TV Filter,"{""weight"": 0.03}",21.745201946279632,0.4807758228531365
+Poisson,Medium,TV Filter,"{""weight"": 0.07}",25.694714598573313,0.6555940081614063
+Poisson,Medium,TV Filter,"{""weight"": 0.1}",26.548577449573887,0.7244453708660639
+Poisson,High,Gaussian Filter,"{""kernel_size"": 3, ""sigma"": 0.5}",17.636512718343976,0.30179705625440695
+Poisson,High,Gaussian Filter,"{""kernel_size"": 5, ""sigma"": 1.0}",22.646483894859017,0.5064390811362328
+Poisson,High,Gaussian Filter,"{""kernel_size"": 7, ""sigma"": 1.5}",23.243355155819543,0.5862115855575889
+Poisson,High,Median Filter,"{""kernel_size"": 3}",19.744377603636792,0.3607474234062448
+Poisson,High,Median Filter,"{""kernel_size"": 5}",21.396487810273488,0.42307250074021147
+Poisson,High,Median Filter,"{""kernel_size"": 7}",21.492833328382556,0.44817081484763494
+Poisson,High,Bilateral Filter,"{""diameter"": 5, ""sigma_color"": 0.05}",14.101280290742947,0.20936907376839023
+Poisson,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.1}",15.093043405344545,0.23866219415816023
+Poisson,High,Bilateral Filter,"{""diameter"": 9, ""sigma_color"": 0.2}",17.844492684864406,0.32240659869838034
+Poisson,High,NLM Filter,"{""h"": 0.1}",16.533398955532526,0.32033487760104834
+Poisson,High,NLM Filter,"{""h"": 0.15}",22.990737290348466,0.5172834729538853
+Poisson,High,NLM Filter,"{""h"": 0.2}",23.46830125341577,0.590872876050637
+Poisson,High,Lee Filter,"{""window_size"": 3}",17.959041123938423,0.32709794973360934
+Poisson,High,Lee Filter,"{""window_size"": 5}",18.7253704887985,0.3486722168543026
+Poisson,High,Lee Filter,"{""window_size"": 7}",18.91891891072351,0.3479063586860598
+Poisson,High,TV Filter,"{""weight"": 0.03}",16.19445248395063,0.2711607899034561
+Poisson,High,TV Filter,"{""weight"": 0.07}",19.421287805729413,0.38325484379060454
+Poisson,High,TV Filter,"{""weight"": 0.1}",21.660961960808162,0.47241795814934157
