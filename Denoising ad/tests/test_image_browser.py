@@ -134,7 +134,9 @@ class SavedPicturesTests(unittest.TestCase):
             start.assert_not_called()
 
         pd.testing.assert_frame_equal(app.dataframe[0].value, averages)
-        scores = app.dataframe[1].value.set_index("Filter")
+        scores = next(
+            table.value for table in app.dataframe if "Best on this image" in table.value.columns
+        ).set_index("Filter")
         expected = self.rows[self.rows["Image"] == "test003.png"].set_index("Filter")
         for filter_name, row in expected.iterrows():
             label = helpers.short_name(filter_name).replace("Noisy (Baseline)", "Noisy (no filter)")

@@ -24,8 +24,12 @@ import streamlit as st
 
 import app_helpers as helpers
 from explanations import (
+    CONDITION_TEXT,
+    DATASET_NOTES,
+    EDGE_CAUTION,
+    EDGE_DETAIL_TEXT,
+    EDGE_TEXT,
     FILTER_TEXT,
-    NOISE_TEXT,
     PSNR_TEXT,
     SSIM_TEXT,
     why_filter_may_work,
@@ -88,19 +92,33 @@ run_name = run_column.selectbox(
 config = runs[run_name]
 conditions = config["required_to_rerun"]["conditions"]
 
+is_degradation = helpers.is_degradation_run(config)
+kind = "degradation" if is_degradation else "noise"
+
 noise_types = list(dict.fromkeys(c["noise_type"] for c in conditions))
 keep_valid_choice("noise_type", noise_types)
-noise_type = noise_column.selectbox("Noise type", noise_types, key="noise_type")
+noise_type = noise_column.selectbox(
+    "Degradation type" if is_degradation else "Noise type", noise_types, key="noise_type"
+)
 
 levels = [c["level"] for c in conditions if c["noise_type"] == noise_type]
 keep_valid_choice("noise_level", levels)
-level = level_column.selectbox("Noise strength", levels, key="noise_level")
+level = level_column.selectbox(
+    "Damage strength" if is_degradation else "Noise strength", levels, key="noise_level"
+)
 
 condition = helpers.get_condition_config(config, noise_type, level)
-meaning = config["required_to_rerun"]["noise"]["parameter_meaning"][noise_type]
+meaning = helpers.condition_meaning(config, noise_type)
 st.caption(
-    f"{NOISE_TEXT[noise_type]} Saved strength: {condition['noise_value']} ({meaning})."
+    f"{CONDITION_TEXT[noise_type]} Saved strength: {condition['noise_value']} ({meaning})."
 )
+
+if is_degradation:
+    st.info(
+        "**Image degradation experiment.** JPEG compression and glare are not noise, and the "
+        "filters were made for noise. Every filter is compared with the unfiltered degraded "
+        "image, and filtering may make the image worse."
+    )
 
 source_text, uses_old_settings = helpers.describe_parameter_source(config)
 if uses_old_settings:
@@ -112,6 +130,10 @@ else:
     st.info(f"**Settings used:** {source_text}.")
 
 st.markdown(f"**Run type:** {helpers.describe_run_type(config)}")
+
+# Remind readers of datasets whose origin still has to be checked
+if config["required_to_rerun"]["dataset"]["name"] == "original_png":
+    st.warning(DATASET_NOTES["original_png"][1])
 
 
 # --------------------------------------------------
@@ -130,43 +152,81 @@ is_one_filter = len(filters) == 1
 first_image = config["required_to_rerun"]["dataset"]["images"][0]["filename"]
 psnr_label = "PSNR" if is_one_image else "Average PSNR"
 ssim_label = "SSIM" if is_one_image else "Average SSIM"
+edge_label = "Edge F1" if is_one_image else "Average Edge F1"
+has_edges = helpers.has_edge_metrics(summary)
+
+# Words for the image before filtering: noisy or degraded
+unfiltered, unfiltered_text, baseline_label = helpers.unfiltered_words(config)
 
 
 # --------------------------------------------------
-# OVERVIEW (only for runs with several noise conditions)
+# OVERVIEW (only for runs with several conditions)
 # --------------------------------------------------
 
 if len(conditions) > 1:
-    st.header("Overview: all noise conditions")
-    st.write("Each row is one noise condition and the filter with the highest average PSNR there.")
+    st.header(f"Overview: all {kind} conditions")
 
-    overview = helpers.condition_overview(summary, image_rows, conditions)
+    metric_options = list(helpers.METRICS) if has_edges else ["PSNR", "SSIM"]
+    keep_valid_choice("overview_metric", metric_options)
+    metric = st.radio(
+        "Rank the filters by",
+        metric_options,
+        horizontal=True,
+        key="overview_metric",
+        help="PSNR is the default ranking. SSIM and Edge F1 can choose a different winner.",
+    )
+    if not has_edges:
+        st.caption("Edge F1 was not measured in this older experiment.")
+
+    metric_name = helpers.METRICS[metric][1]
+    st.write(
+        f"Each row is one condition and the filter with the highest average **{metric}** there. "
+        f"**Winner decided by: {metric}.** 'Filtering helped?' compares that filter with the "
+        f"unfiltered {unfiltered_text}."
+    )
+
+    overview = helpers.condition_overview(
+        summary, image_rows, conditions, metric,
+        kind="Degradation" if is_degradation else "Noise", unfiltered=unfiltered,
+    )
     st.dataframe(overview, hide_index=True, width="stretch", height=helpers.table_height(len(overview)))
 
     best_counts = overview["Best filter"].value_counts()
     st.caption(
-        "Best in: "
+        f"Best {metric} in: "
         + ", ".join(f"{name} {count} of {len(overview)}" for name, count in best_counts.items())
-        + f". 'Close' means the lead is below {helpers.CLOSE_RESULT_DB} dB."
+        + (f". 'Close' means the lead is below {helpers.CLOSE_RESULT_DB} dB." if metric == "PSNR" else ".")
     )
+    if (overview["Filtering helped?"] == "No").any():
+        st.warning(
+            f"In {(overview['Filtering helped?'] == 'No').sum()} of {len(overview)} conditions, "
+            f"no tested filter improved {metric} over the unfiltered {unfiltered_text}."
+        )
+    if metric == "Edge F1":
+        st.caption(EDGE_CAUTION)
 
-    matrix = helpers.psnr_by_condition(summary, conditions)
-    filter_columns = [column for column in matrix.columns if column != "Noisy"]
-    st.markdown("**Average PSNR (dB) of every filter in every condition.** The highest in each row is highlighted.")
+    matrix = helpers.metric_by_condition(summary, conditions, metric, unfiltered)
+    filter_columns = [column for column in matrix.columns if column != unfiltered]
+    st.markdown(f"**Average {metric_name} of every filter in every condition.** The highest in each row is highlighted.")
     st.dataframe(
-        matrix.style.format("{:.2f}").highlight_max(
+        matrix.style.format(helpers.METRICS[metric][2]).highlight_max(
             axis=1, subset=filter_columns,
             props="font-weight: bold; background-color: rgba(46, 160, 67, 0.35)",
         ),
         width="stretch",
         height=helpers.table_height(len(matrix)),
     )
-    st.caption("Choose a noise type and strength in section 1 to see one condition in detail below.")
+    st.caption(f"Choose a {kind} type and strength in section 1 to see one condition in detail below.")
 
 st.header("2. The result")
 
+# Ranking the filters and "did filtering help at all?" are separate questions.
+any_filter_helped = helpers.filtering_helped(baseline, filters)
+
 if is_one_filter:
     st.subheader(f"Filter tested: {best_name}")
+elif not any_filter_helped:
+    st.subheader(f"Ranked first by {psnr_label}, but no improvement: {best_name}")
 elif is_one_image:
     st.subheader(f"Best filter on this image: {best_name}")
 else:
@@ -181,17 +241,25 @@ else:
     dataset_name = config["required_to_rerun"]["dataset"]["name"]
     st.info(f"These scores are averages across {image_count} images from {dataset_name}.")
 
-psnr_column, ssim_column, wins_column = st.columns(3)
+psnr_column, ssim_column, edge_column, wins_column = st.columns(4)
 psnr_column.metric(
     psnr_label,
     f"{best['PSNR_mean']:.2f} dB",
-    f"{best['PSNR_mean'] - baseline['PSNR_mean']:+.2f} dB vs noisy image",
+    f"{best['PSNR_mean'] - baseline['PSNR_mean']:+.2f} dB vs {unfiltered_text}",
 )
 ssim_column.metric(
     ssim_label,
     f"{best['SSIM_mean']:.3f}",
-    f"{best['SSIM_mean'] - baseline['SSIM_mean']:+.3f} vs noisy image",
+    f"{best['SSIM_mean'] - baseline['SSIM_mean']:+.3f} vs {unfiltered_text}",
 )
+if has_edges:
+    edge_column.metric(
+        edge_label,
+        f"{best['Edge_F1_mean']:.3f}",
+        f"{best['Edge_F1_mean'] - baseline['Edge_F1_mean']:+.3f} vs {unfiltered_text}",
+    )
+else:
+    edge_column.metric(edge_label, helpers.NOT_MEASURED)
 
 if is_one_image or is_one_filter:
     wins_column.metric("Filters tested", len(filters))
@@ -201,6 +269,16 @@ else:
 
 psnr_column.caption(PSNR_TEXT)
 ssim_column.caption(SSIM_TEXT)
+edge_column.caption(EDGE_TEXT if has_edges else "This older experiment did not save edge scores.")
+
+# Ranking and "did filtering help?" are separate questions.
+if not any_filter_helped:
+    st.error(f"**No tested filter improved PSNR over the unfiltered {unfiltered_text}.**")
+    st.caption(
+        (f"{best_name} lowered PSNR. " if is_one_filter else
+         f"{best_name} is listed first only because it lost the least PSNR. ")
+        + f"Here, leaving the {unfiltered_text} unfiltered gave the highest PSNR."
+    )
 
 close_filters = helpers.find_close_filters(filters)
 
@@ -245,13 +323,14 @@ if not is_one_filter:
     )
 
 if is_one_image:
-    st.caption(f"Before filtering, this noisy image scored {baseline['PSNR_mean']:.2f} dB.")
+    st.caption(f"Before filtering, this {unfiltered_text} scored {baseline['PSNR_mean']:.2f} dB.")
 else:
-    st.caption(f"Before filtering, the noisy images averaged {baseline['PSNR_mean']:.2f} dB.")
+    st.caption(f"Before filtering, the {unfiltered_text}s averaged {baseline['PSNR_mean']:.2f} dB.")
 
 table = chart_data[["Filter"]].copy()
 table[f"{psnr_label} (dB)"] = filters["PSNR_mean"].map("{:.2f}".format)
 table[ssim_label] = filters["SSIM_mean"].map("{:.3f}".format)
+table[edge_label] = [helpers.show_number(value) for value in filters.get("Edge_F1_mean", [None] * len(filters))]
 
 time_label = "Time (ms)" if is_one_image else "Average time (ms)"
 table[time_label] = (filters["Execution_Time_mean"] * 1000).map("{:.1f}".format)
@@ -277,6 +356,16 @@ st.caption(
     + ("" if is_one_image or is_one_filter else
        " 'Best PSNR on' counts images where that filter scored highest; tied filters all count.")
 )
+
+if has_edges:
+    with st.expander("Edge details: precision and recall"):
+        st.markdown(EDGE_DETAIL_TEXT)
+        st.dataframe(
+            helpers.edge_details(baseline, filters, baseline_label),
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption(EDGE_CAUTION)
 
 
 # --------------------------------------------------
@@ -307,13 +396,16 @@ st.header("5. See the images")
 picture_noise, picture_level = noise_type, level
 image_column = condition_column = st
 
-# Runs with several noise conditions: choose the image and the condition here.
+# Runs with several conditions: choose the image and the condition here.
 if len(conditions) > 1:
     image_column, condition_column = st.columns(2)
     labels = [helpers.condition_label(c["noise_type"], c["level"]) for c in conditions]
     keep_valid_choice("compare_condition", labels)
     st.session_state.setdefault("compare_condition", helpers.condition_label(noise_type, level))
-    picture_label = condition_column.selectbox("Noise condition", labels, key="compare_condition")
+    picture_label = condition_column.selectbox(
+        "Degradation condition" if is_degradation else "Noise condition",
+        labels, key="compare_condition",
+    )
     picture_noise, picture_level = picture_label.split(" / ")
 
 pictures = helpers.comparison_images(config, run_name, picture_noise, picture_level)
@@ -339,7 +431,8 @@ elif len(pictures) == 1 and not is_one_image:
 if not is_one_image and len(conditions) > 1:
     st.info(
         f"The picture and tables below are for {chosen_image} with {picture_level} "
-        f"{picture_noise} noise. Sections 2 to 4 show averages across all {image_count} images."
+        f"{picture_noise}{'' if is_degradation else ' noise'}. "
+        f"Sections 2 to 4 show averages across all {image_count} images."
     )
 elif not is_one_image:
     st.info(
@@ -354,15 +447,15 @@ if chosen_image in pictures:
     )
 
 st.dataframe(
-    helpers.image_scores(image_rows, picture_noise, picture_level, chosen_image),
+    helpers.image_scores(image_rows, picture_noise, picture_level, chosen_image, baseline_label),
     hide_index=True,
     width="stretch",
 )
 
 if len(conditions) > 1:
-    st.markdown(f"**{chosen_image} in every noise condition** (PSNR in dB, higher is better)")
+    st.markdown(f"**{chosen_image} in every condition** (PSNR in dB, higher is better)")
     st.dataframe(
-        helpers.image_across_conditions(image_rows, chosen_image, conditions),
+        helpers.image_across_conditions(image_rows, chosen_image, conditions, unfiltered),
         hide_index=True,
         width="stretch",
         height=helpers.table_height(len(conditions)),
@@ -380,7 +473,25 @@ with st.expander("How this experiment was made"):
     image_word = "image" if needed["dataset"]["images_processed"] == 1 else "images"
     st.write(f"**Dataset:** {needed['dataset']['name']} ({needed['dataset']['images_processed']} {image_word})")
     st.write(f"**Started:** {config['run']['started_at']}")
-    st.write(f"**Random seed rule:** `{needed['noise']['seed_policy']['formula']}`")
+    st.write(f"**Random seed rule:** {helpers.seed_rule(config)}")
+    if is_degradation:
+        st.write(
+            "**Degradation settings:** "
+            + "; ".join(
+                f"{name}: " + ", ".join(f"{lvl} {value}" for lvl, value in strengths.items())
+                + f" ({needed['degradation']['parameter_meaning'][name]})"
+                for name, strengths in needed["degradation"]["levels"].items()
+            )
+        )
+    edge_settings = config["useful_for_interpretation"]["evaluation"].get("edge_preservation")
+    if edge_settings:
+        st.write(
+            f"**Edge scores:** Canny thresholds {edge_settings['canny_low_threshold']} and "
+            f"{edge_settings['canny_high_threshold']}, matched within "
+            f"{edge_settings['match_tolerance_pixels']} pixel of the clean image's edges."
+        )
+    else:
+        st.write("**Edge scores:** not measured in this experiment.")
     st.write(f"**Code version:** `{git.get('commit', 'unknown')[:7]}` ({git.get('working_tree', 'unknown')})")
     st.write(f"**Note:** {git.get('note', 'No Git note was saved.')}")
     st.write(f"**Python:** {environment['python']}")

@@ -119,9 +119,11 @@ class RealRunTests(unittest.TestCase):
         self.assertEqual(list(saved.columns), [
             "Image", "Noise_Type", "Noise_Level", "Filter",
             "PSNR", "SSIM", "Execution_Time",
+            "Edge_Precision", "Edge_Recall", "Edge_F1",
         ])
         self.assertTrue((self.run_dir / "summary.csv").exists())
-        self.assertEqual(len(list((self.run_dir / "graphs").glob("*.png"))), 6)
+        # 2 noise types x (PSNR, SSIM, time, edge precision, edge recall, edge F1)
+        self.assertEqual(len(list((self.run_dir / "graphs").glob("*.png"))), 12)
         self.assertNotIn(json.dumps(str(Path.home()))[1:-1], self.text)
 
     def test_config_records_dataset_and_actual_seeds(self):

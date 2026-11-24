@@ -11,12 +11,62 @@ SSIM_TEXT = (
     "It is usually between 0 and 1, and **closer to 1 is better**."
 )
 
+EDGE_TEXT = (
+    "**Edge F1** checks whether the outlines of objects survived. Edges are found in the "
+    "clean image and in the result with the Canny detector. It is between 0 and 1, and "
+    "**higher is better**."
+)
+
+EDGE_DETAIL_TEXT = (
+    "**Edge Precision:** of the edges in the result, how many are real edges? Noise creates "
+    "fake edges, which lowers it. **Edge Recall:** of the real edges, how many were kept? "
+    "Blurring removes edges, which lowers it. **Edge F1** balances the two. An edge counts "
+    "as kept if it is within 1 pixel of the real one (Canny thresholds 50 and 150)."
+)
+
+EDGE_CAUTION = (
+    "Careful: strong noise creates edges almost everywhere, and some of them land on real "
+    "edges by chance. So an unfiltered image can get a high Edge Recall and Edge F1 without "
+    "being clean. Read Edge F1 together with Edge Precision, PSNR, and SSIM."
+)
+
+DATASET_NOTES = {
+    "Set12": ("info", "Set12 is used to choose filter settings, so treat these results as practice."),
+    "Urban100_HR": (
+        "warning",
+        "Urban100_HR has large colour photos of buildings (about 0.6 to 1.2 megapixels, "
+        "roughly 5 times more pixels than a BSD68 image). They are converted to grayscale "
+        "like every other image. Full-dataset experiments will be much slower, and the "
+        "saved pictures and folders will be larger.",
+    ),
+    "original_png": (
+        "warning",
+        "original_png: 12 grayscale images (1.22 megapixels each) added by a teammate. "
+        "Their origin and intended purpose have not been verified yet. Check them before "
+        "using these results in a research report.",
+    ),
+}
+
 NOISE_TEXT = {
     "Gaussian": "Gaussian noise adds a small random change to every pixel, like fine grain.",
     "Salt-and-Pepper": "Salt-and-Pepper noise turns some random pixels fully white or black.",
     "Speckle": "Speckle noise multiplies pixels by a random amount, so bright areas get stronger noise.",
     "Poisson": "Poisson noise imitates low light, where the noise depends on image brightness.",
 }
+
+DEGRADATION_TEXT = {
+    "JPEG Compression": (
+        "JPEG compression makes the file smaller by throwing away fine detail, which can "
+        "create 8×8 blocks and ripples near edges. Lower quality means stronger damage."
+    ),
+    "Glare": (
+        "Glare adds a soft bright spot, like light reflecting on a lens. For one image the "
+        "spot is always in the same place; only its brightness changes with the strength."
+    ),
+}
+
+# Text for every condition type a run can contain
+CONDITION_TEXT = {**NOISE_TEXT, **DEGRADATION_TEXT}
 
 FILTER_TEXT = {
     "Gaussian": "The Gaussian filter takes a weighted average, with nearby pixels counting most.",
@@ -97,7 +147,8 @@ def why_filter_may_work(noise_type, filter_name):
     if specific:
         return specific
 
+    damage = "damage" if noise_type in DEGRADATION_TEXT else "noise"
     return (
         f"{FILTER_TEXT[filter_name]} With the saved settings, that approach "
-        "raised the PSNR for this noise."
+        f"raised the PSNR for this {damage}."
     )

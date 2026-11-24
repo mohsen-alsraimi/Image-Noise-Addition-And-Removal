@@ -5,14 +5,24 @@ import streamlit as st
 import app_helpers as helpers
 import experiment_job as jobs
 import job_runner
-from explanations import FILTER_TEXT, NOISE_TEXT, PARAMETER_HELP
-from run_metadata import NOISE_PARAMETER_MEANING
+from explanations import DATASET_NOTES, DEGRADATION_TEXT, FILTER_TEXT, NOISE_TEXT, PARAMETER_HELP
+from run_metadata import DEGRADATION_PARAMETER_MEANING, NOISE_PARAMETER_MEANING
 
 ALL_FILTERS = "All six filters"
 ONE_IMAGE = "One selected image"
 FULL_DATASET = "Full dataset"
 ONE_CONDITION = "One noise condition"
 ALL_CONDITIONS = "All noise conditions (full experiment)"
+NOISE = "Noise"
+DEGRADATION = "Image degradation"
+ONE_DEGRADATION = "One degradation condition"
+ALL_DEGRADATIONS = "All degradation conditions (JPEG and Glare)"
+
+DEFAULT_ONLY_TEXT = (
+    "Tuned presets were chosen for noise on Set12 and have not been checked for "
+    "JPEG compression or glare, so only Default parameters are offered here. "
+    "You can still change the values by hand."
+)
 
 # Measured size of one compact comparison picture (BSD68 image, six filters)
 PICTURE_MB = 0.2
@@ -133,20 +143,35 @@ def load_preset(filter_name, filter_function, noise_type, noise_level):
         st.session_state[setting_key(filter_name, name)] = value
 
 
-def show_filter_settings(filter_name, filter_function, noise_type, noise_level, noise_value):
+def preset_options(degradation):
+    """Tuned presets exist only for noise, so degradation runs offer Default only."""
+    return ["default"] if degradation else list(jobs.PARAMETER_SOURCES)
+
+
+def show_filter_settings(filter_name, filter_function, noise_type, noise_level, noise_value,
+                         degradation=False):
     """Shows one filter's preset and its real settings. Returns the choices."""
     preset_key = f"preset::{filter_name}"
     choices = jobs.PARAMETER_CHOICES[filter_name]
+    options = preset_options(degradation)
 
     # First visit: start every control from the Default preset.
     if preset_key not in st.session_state:
         st.session_state[preset_key] = "default"
+    # A tuned preset is not offered for degradation: reload the Default values,
+    # so tuned noise values are never carried over silently.
+    elif st.session_state[preset_key] not in options:
+        st.session_state[preset_key] = "default"
+        load_preset(filter_name, filter_function, noise_type, noise_level)
     if any(setting_key(filter_name, name) not in st.session_state for name in choices):
         load_preset(filter_name, filter_function, noise_type, noise_level)
 
+    if degradation:
+        st.caption(DEFAULT_ONLY_TEXT)
+
     preset = st.selectbox(
         "Load preset",
-        list(jobs.PARAMETER_SOURCES),
+        options,
         format_func=lambda source: jobs.PARAMETER_SOURCES[source]["label"],
         key=preset_key,
         on_change=load_preset,
@@ -175,6 +200,8 @@ def show_filter_settings(filter_name, filter_function, noise_type, noise_level, 
                 f"Lee also receives speckle variance {noise_value}, taken from the noise "
                 "choice above. It is not a separate setting."
             )
+        elif degradation:
+            st.caption("Lee's speckle model is off, because this is not speckle noise.")
         else:
             st.caption("Lee's speckle model is off, because the noise is not Speckle.")
 
@@ -200,16 +227,21 @@ def show_filter_settings(filter_name, filter_function, noise_type, noise_level, 
     return {"preset": preset, "parameters": values}
 
 
-def show_all_conditions_settings(filter_name, filter_function, noise_levels):
+def show_all_conditions_settings(filter_name, filter_function, noise_levels, degradation=False):
     """Settings for a run over all noise conditions. Returns the choices."""
     preset_key = f"preset::{filter_name}"
     choices = jobs.PARAMETER_CHOICES[filter_name]
     conditions = [(noise, level) for noise, levels in noise_levels.items() for level in levels]
+    options = preset_options(degradation)
 
-    st.session_state.setdefault(preset_key, "default")
+    if st.session_state.get(preset_key) not in options:
+        st.session_state[preset_key] = "default"
+    if degradation:
+        st.caption(DEFAULT_ONLY_TEXT)
+
     preset = st.selectbox(
         "Preset",
-        list(jobs.PARAMETER_SOURCES),
+        options,
         format_func=lambda source: jobs.PARAMETER_SOURCES[source]["label"],
         key=preset_key,
         persist_state="page",
@@ -252,7 +284,7 @@ def show_all_conditions_settings(filter_name, filter_function, noise_levels):
         column.caption(PARAMETER_HELP[filter_name][name])
 
     st.caption(f"These exact values are used for all {len(conditions)} conditions.")
-    if filter_name == "Lee Filter":
+    if filter_name == "Lee Filter" and not degradation:
         st.caption("In the Speckle conditions, Lee also receives that condition's speckle variance.")
 
     return {"preset": preset, "parameters": values}
@@ -268,8 +300,8 @@ def show_run_view(is_running):
 
     st.header("Run an experiment")
     st.write(
-        "Choose one image or a full dataset, a noise condition, and the filter settings. "
-        "Results are saved as a new experiment."
+        "Choose one image or a full dataset, what to test (noise or image degradation), "
+        "and the filter settings. Results are saved as a new experiment."
     )
 
     st.subheader("1. Choose image")
@@ -288,6 +320,11 @@ def show_run_view(is_running):
 
     image_paths = backend.find_image_paths(backend.PROJECT_DIR / "dataset" / dataset)
     image_names = [path.name for path in image_paths]
+    image_columns[0].caption(f"{dataset} has {len(image_names)} images.")
+
+    if dataset in DATASET_NOTES:
+        kind, note = DATASET_NOTES[dataset]
+        (st.warning if kind == "warning" else st.info)(note)
 
     if scope == ONE_IMAGE:
         keep_valid_choice("run_image", image_names)
@@ -302,32 +339,60 @@ def show_run_view(is_running):
             "This can take several minutes; NLM and TV are the slowest filters."
         )
 
-    st.subheader("2. Choose noise")
-    noise_scope = ONE_CONDITION
+    st.subheader("2. Choose what to test")
+    test_kind = st.radio(
+        "What to test",
+        [NOISE, DEGRADATION],
+        horizontal=True,
+        key="run_test_kind",
+        persist_state="page",
+        help="Noise: Gaussian, Salt-and-Pepper, Speckle, Poisson. "
+             "Image degradation: JPEG compression and glare.",
+    )
+    degradation = test_kind == DEGRADATION
+    condition_levels = backend.DEGRADATION_LEVELS if degradation else backend.NOISE_LEVELS
+    condition_text = DEGRADATION_TEXT if degradation else NOISE_TEXT
+    meanings = DEGRADATION_PARAMETER_MEANING if degradation else NOISE_PARAMETER_MEANING
+    one_label, all_label = (ONE_DEGRADATION, ALL_DEGRADATIONS) if degradation else (ONE_CONDITION, ALL_CONDITIONS)
+    damaged = "degraded image" if degradation else "noisy image"
+    noise_scope = one_label
     save_pictures = True
+
+    if degradation:
+        st.info(
+            "JPEG compression and glare are not noise. The filters were made for noise, "
+            "so they may make these images worse. Results compare every filter with the "
+            "unfiltered degraded image."
+        )
 
     if scope == FULL_DATASET:
         noise_scope = st.radio(
-            "Noise conditions",
-            [ONE_CONDITION, ALL_CONDITIONS],
+            "Degradation conditions" if degradation else "Noise conditions",
+            [one_label, all_label],
             horizontal=True,
-            key="run_noise_scope",
+            key="run_degradation_scope" if degradation else "run_noise_scope",
             persist_state="page",
         )
 
-    all_conditions = noise_scope == ALL_CONDITIONS
-    condition_count = sum(len(levels) for levels in backend.NOISE_LEVELS.values())
+    all_conditions = noise_scope == all_label
+    condition_count = sum(len(levels) for levels in condition_levels.values())
 
     if all_conditions:
         noise_type = level = None
         levels = {}
-        st.info(
-            f"All {condition_count} noise conditions: 4 noise types × 3 strengths, "
-            "like the full terminal experiment. Every image is tested under each one."
-        )
+        if degradation:
+            st.info(
+                f"All {condition_count} degradation conditions: JPEG compression and glare × "
+                "3 strengths. This is a separate experiment from the 12 noise conditions."
+            )
+        else:
+            st.info(
+                f"All {condition_count} noise conditions: 4 noise types × 3 strengths, "
+                "like the full terminal experiment. Every image is tested under each one."
+            )
         st.caption(" · ".join(
             f"{noise}: " + ", ".join(f"{name} {value}" for name, value in strengths.items())
-            for noise, strengths in backend.NOISE_LEVELS.items()
+            for noise, strengths in condition_levels.items()
         ))
         picture_count = len(image_names) * condition_count
         save_pictures = st.checkbox(
@@ -344,16 +409,24 @@ def show_run_view(is_running):
     else:
         noise_columns = st.columns(2)
         noise_type = noise_columns[0].selectbox(
-            "Noise type", list(backend.NOISE_LEVELS), key="run_noise", persist_state="page"
+            "Degradation type" if degradation else "Noise type",
+            list(condition_levels),
+            key="run_degradation" if degradation else "run_noise",
+            persist_state="page",
         )
 
-        levels = backend.NOISE_LEVELS[noise_type]
+        levels = condition_levels[noise_type]
         level = noise_columns[1].selectbox(
-            "Noise strength", list(levels), key="run_level", persist_state="page"
+            "Damage strength" if degradation else "Noise strength",
+            list(levels),
+            key="run_degradation_level" if degradation else "run_level",
+            persist_state="page",
         )
         st.caption(
-            f"{NOISE_TEXT[noise_type]} Saved strength: {levels[level]} "
-            f"({NOISE_PARAMETER_MEANING[noise_type]}). Noise settings are fixed; filters only clean it."
+            f"{condition_text[noise_type]} Saved strength: {levels[level]} "
+            f"({meanings[noise_type]}). "
+            + ("These settings are fixed; filters only try to repair the damage." if degradation
+               else "Noise settings are fixed; filters only clean it.")
         )
 
     st.subheader("3. Choose filters")
@@ -370,8 +443,12 @@ def show_run_view(is_running):
 
     def settings_for(name):
         if all_conditions:
-            return show_all_conditions_settings(name, backend.filters[name], backend.NOISE_LEVELS)
-        return show_filter_settings(name, backend.filters[name], noise_type, level, levels[level])
+            return show_all_conditions_settings(
+                name, backend.filters[name], condition_levels, degradation
+            )
+        return show_filter_settings(
+            name, backend.filters[name], noise_type, level, levels[level], degradation
+        )
 
     for name in chosen_names:
         if filter_choice == ALL_FILTERS:
@@ -392,23 +469,29 @@ def show_run_view(is_running):
         f"  - {helpers.short_name(name)}: {describe_settings(chosen)}"
         for name, chosen in chosen_settings.items()
     )
-    same_image = " Every filter cleans the exact same noisy image." if len(chosen_names) > 1 else ""
+    same_image = f" Every filter cleans the exact same {damaged}." if len(chosen_names) > 1 else ""
     if image is None:
         image_line = f"- **Images:** all {len(image_names)} images from {dataset}, one after another.\n"
     else:
         image_line = f"- **Image:** `{image}` from {dataset}.\n"
+    condition_word = "Image damage" if degradation else "Noise"
     if all_conditions:
-        noise_line = f"- **Noise:** all {condition_count} conditions, one after another for each image.\n"
+        noise_line = (
+            f"- **{condition_word}:** all {condition_count} "
+            f"{'degradation ' if degradation else ''}conditions, one after another for each image.\n"
+        )
     else:
-        noise_line = f"- **Noise:** {level} {noise_type}, strength {levels[level]}.\n"
+        noise_line = f"- **{condition_word}:** {level} {noise_type}, strength {levels[level]}.\n"
+    if degradation:
+        noise_line += (
+            "- **Compared with:** the unfiltered degraded image. Only Default parameters "
+            "(or your own edits) are used, because tuned presets were made for noise.\n"
+        )
     st.markdown(
         image_line + noise_line +
         f"- **Filters and settings:**{same_image}\n{filter_lines}\n"
-        "- **Result:** PSNR, SSIM, execution time, and images are saved in a new folder."
+        "- **Result:** PSNR, SSIM, edge scores, execution time, and images are saved in a new folder."
     )
-
-    if dataset == "Set12":
-        st.info("Set12 is used to choose filter settings, so treat these results as practice.")
 
     if is_running:
         status = "Running"
@@ -427,6 +510,9 @@ def show_run_view(is_running):
             "noise_level": level,
             "filters": chosen_settings,
         }
+        # Noise jobs keep their earlier format; a missing field means "noise".
+        if degradation:
+            job["experiment"] = "degradation"
         if all_conditions:
             job["noise_scope"] = "all"
             job["save_pictures"] = save_pictures

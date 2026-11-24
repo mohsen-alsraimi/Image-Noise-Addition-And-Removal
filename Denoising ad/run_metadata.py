@@ -18,9 +18,14 @@ from pathlib import Path
 
 import numpy as np
 
+from edge_metrics import EDGE_METRIC_LIMITATIONS, EDGE_METRIC_SETTINGS
+
 CONFIG_NAME = "run_config.json"
 PROJECT_DIR = Path(__file__).resolve().parent
-CODE_FILES = ("add_noise.py", "filter.py", "main.py", "run_metadata.py")
+CODE_FILES = (
+    "add_noise.py", "filter.py", "main.py", "run_metadata.py",
+    "edge_metrics.py", "image_degradation.py",
+)
 MAX_LISTED_FILES = 100
 
 LIBRARY_MODULES = {
@@ -38,6 +43,25 @@ NOISE_PARAMETER_MEANING = {
     "Salt-and-Pepper": "fraction of pixels affected",
     "Speckle": "variance of the multiplicative noise",
     "Poisson": "peak photon count (lower means stronger noise)",
+}
+
+DEGRADATION_PARAMETER_MEANING = {
+    "JPEG Compression": "JPEG quality, 0-100 (lower means stronger damage)",
+    "Glare": "glare strength alpha, 0-1 (higher means stronger)",
+}
+
+DEGRADATION_SETTING_NAME = {"JPEG Compression": "jpeg_quality", "Glare": "glare_strength"}
+
+DEGRADATION_METHODS = {
+    "JPEG Compression": (
+        "Round to 0-255, encode with cv2.imencode('.jpg', IMWRITE_JPEG_QUALITY=quality), "
+        "decode as grayscale, divide by 255. Not random."
+    ),
+    "Glare": (
+        "Blend an elliptical Gaussian light spot: (1 - alpha * mask) * image + alpha * mask, "
+        "clipped to 0-1. The seed places the spot (centre at 25-75% of the width and height) "
+        "and sets its spread (12-22% of the width and height)."
+    ),
 }
 
 
@@ -193,14 +217,23 @@ def build_run_config(images, dataset_path, results_path, max_images,
                      noise_levels, base_seed, filters, tuned_parameters,
                      tuned_file, get_seed, get_parameters, image_indices=None,
                      job=None, parameter_label=None, parameter_sources=None,
-                     parameter_sources_by_condition=None):
-    """Builds the record using the runner's own seed and parameter rules."""
+                     parameter_sources_by_condition=None, degradation_levels=None,
+                     glare_seed_offset=None):
+    """Builds the record using the runner's own seed and parameter rules.
+
+    Degradation jobs (JPEG and glare) list degradation conditions instead
+    of noise conditions. For them "noise_type" holds the degradation type,
+    so the Results view can read both kinds the same way.
+    """
     conditions = []
+    experiment = (job or {}).get("experiment", "noise")
+    is_degradation = experiment == "degradation"
+    condition_levels = degradation_levels if is_degradation else noise_levels
 
     if image_indices is None:
         image_indices = range(len(images))
 
-    for noise_index, (noise_type, levels) in enumerate(noise_levels.items()):
+    for noise_index, (noise_type, levels) in enumerate(condition_levels.items()):
         for level_index, (level_name, noise_value) in enumerate(levels.items()):
             # A job over all noise conditions keeps every condition.
             if (
@@ -210,13 +243,31 @@ def build_run_config(images, dataset_path, results_path, max_images,
             ):
                 continue
 
+            if is_degradation:
+                record = {
+                    "category": "degradation",
+                    "noise_type": noise_type,
+                    "level": level_name,
+                    "noise_value": noise_value,
+                    "degradation_type": noise_type,
+                    DEGRADATION_SETTING_NAME[noise_type]: noise_value,
+                    "glare_location_seed_offset": (
+                        glare_seed_offset if noise_type == "Glare" else None
+                    ),
+                }
+            else:
+                record = {
+                    "category": "noise",
+                    "noise_type": noise_type,
+                    "level": level_name,
+                    "noise_value": noise_value,
+                    "noise_index": noise_index,
+                    "level_index": level_index,
+                    "seed_offset": get_seed(0, noise_index, level_index) - base_seed,
+                }
+
             conditions.append({
-                "noise_type": noise_type,
-                "level": level_name,
-                "noise_value": noise_value,
-                "noise_index": noise_index,
-                "level_index": level_index,
-                "seed_offset": get_seed(0, noise_index, level_index) - base_seed,
+                **record,
                 "filters": {
                     name: _describe_filter(
                         name,
@@ -276,7 +327,9 @@ def build_run_config(images, dataset_path, results_path, max_images,
                     ),
                     "from_this_file": "base_seed + image_index * 1000 + seed_offset",
                 },
+                "used_in_this_run": not is_degradation,
             },
+            "experiment": experiment,
             "filters_executed": list(filters),
             "parameter_source": {
                 "mode": "tuned" if is_tuned else "function_defaults",
@@ -301,10 +354,14 @@ def build_run_config(images, dataset_path, results_path, max_images,
                 "machine": platform.machine(),
             },
             "evaluation": {
-                "metrics": ["PSNR", "SSIM"],
+                "metrics": ["PSNR", "SSIM", "Edge_Precision", "Edge_Recall", "Edge_F1"],
                 "image_data_range": [0.0, 1.0],
                 "psnr": "scikit-image peak_signal_noise_ratio, data_range=1.0",
                 "ssim": "scikit-image structural_similarity defaults, data_range=1.0",
+                "edge_preservation": EDGE_METRIC_SETTINGS,
+                "edge_scores_scope": (
+                    "Calculated after the timer stops, for the unfiltered baseline and every filter"
+                ),
                 "execution_time_unit": "seconds",
                 "execution_time_scope": (
                     "Only the filter function call, including work inside it"
@@ -320,12 +377,47 @@ def build_run_config(images, dataset_path, results_path, max_images,
                 "Timing is one measurement per image and depends on system load.",
                 "OpenCV may use multiple threads, which can affect timing.",
                 "NLM estimates noise inside the timed call only when h is omitted.",
+                *EDGE_METRIC_LIMITATIONS,
             ],
         },
     }
 
     if job is not None:
         config["run"]["job"] = job
+
+    if is_degradation:
+        config["required_to_rerun"]["degradation"] = {
+            "levels": degradation_levels,
+            "parameter_meaning": {
+                name: DEGRADATION_PARAMETER_MEANING.get(name, "unknown")
+                for name in degradation_levels
+            },
+            "methods": DEGRADATION_METHODS,
+            "seed_policy": {
+                "jpeg_compression": "Not random, so no seed is used.",
+                "glare": {
+                    "base_seed": base_seed,
+                    "offset": glare_seed_offset,
+                    "formula": f"base_seed + image_index * 1000 + {glare_seed_offset}",
+                    "same_for_all_levels": True,
+                    "reason": (
+                        "The seed places the glare spot. One seed per image keeps the spot "
+                        "in the same place for Low, Medium and High, so only the strength changes."
+                    ),
+                },
+            },
+            "baseline": "Degraded (Baseline): the JPEG or glare image before any filter",
+            "source": (
+                "Adapted from the teammate branch "
+                "feature/image_degradation-different_datasets-edge_preservation. "
+                "Its glare seed (base_seed + image_index * 1000 + level_index) moved the "
+                "spot between levels; it was replaced by the per-image seed above."
+            ),
+        }
+        config["useful_for_interpretation"]["limitations"].append(
+            "The filters were designed for noise. JPEG blocks and glare are different "
+            "damage, so a filter can lower PSNR compared with the unfiltered degraded image."
+        )
 
     if parameter_sources_by_condition is not None:
         config["run"]["mode"] = "per_filter_parameters"

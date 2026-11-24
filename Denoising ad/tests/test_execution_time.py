@@ -210,6 +210,7 @@ class OutputCompatibilityTests(unittest.TestCase):
             self.assertEqual(list(saved.columns), [
                 "Image", "Noise_Type", "Noise_Level", "Filter",
                 "PSNR", "SSIM", "Execution_Time",
+                "Edge_Precision", "Edge_Recall", "Edge_F1",
             ])
             times = saved["Execution_Time"].to_numpy(dtype=float)
             self.assertTrue(np.isfinite(times).all())

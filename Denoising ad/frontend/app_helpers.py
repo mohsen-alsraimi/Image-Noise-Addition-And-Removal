@@ -16,9 +16,36 @@ from run_metadata import comparison_file_name
 
 RESULTS_DIR = PROJECT_DIR / "results"
 BASELINE_NAME = "Noisy (Baseline)"
+DEGRADED_BASELINE_NAME = "Degraded (Baseline)"
+BASELINE_NAMES = (BASELINE_NAME, DEGRADED_BASELINE_NAME)
 
 # A display rule, not a scientific test: smaller gaps are labelled "close".
 CLOSE_RESULT_DB = 0.2
+
+NOT_MEASURED = "Not measured"
+
+# Metrics the overview can rank by: saved column, label, number format.
+METRICS = {
+    "PSNR": ("PSNR", "PSNR (dB)", "{:.2f}"),
+    "SSIM": ("SSIM", "SSIM", "{:.3f}"),
+    "Edge F1": ("Edge_F1", "Edge F1", "{:.3f}"),
+}
+
+
+def is_baseline(filter_name):
+    return filter_name in BASELINE_NAMES
+
+
+def has_edge_metrics(table):
+    """True if this run saved edge scores (older runs did not)."""
+    return "Edge_F1" in table.columns or "Edge_F1_mean" in table.columns
+
+
+def show_number(value, number_format="{:.3f}"):
+    """Formats a saved score, or says it was not measured."""
+    if value is None or pd.isna(value):
+        return NOT_MEASURED
+    return number_format.format(value)
 
 
 def find_saved_runs(results_dir=RESULTS_DIR):
@@ -67,16 +94,35 @@ def short_name(filter_name):
     return filter_name.replace(" Filter", "")
 
 
-def get_condition(summary, noise_type, level):
-    """Returns the noisy baseline and the filters ranked by average PSNR."""
+def get_condition(summary, noise_type, level, metric="PSNR"):
+    """Returns the unfiltered baseline and the filters ranked by a metric's average."""
     rows = summary[
         (summary["Noise_Type"] == noise_type)
         & (summary["Noise_Level"] == level)
     ]
-    baseline = rows[rows["Filter"] == BASELINE_NAME].iloc[0]
-    filters = rows[rows["Filter"] != BASELINE_NAME]
-    filters = filters.sort_values("PSNR_mean", ascending=False)
+    baseline = rows[rows["Filter"].isin(BASELINE_NAMES)].iloc[0]
+    filters = rows[~rows["Filter"].isin(BASELINE_NAMES)]
+    filters = filters.sort_values(f"{METRICS[metric][0]}_mean", ascending=False)
     return baseline, filters.reset_index(drop=True)
+
+
+def filtering_helped(baseline, filters, metric="PSNR"):
+    """Did any filter score higher than the unfiltered image? (best average vs baseline)"""
+    column = f"{METRICS[metric][0]}_mean"
+    return bool(filters[column].max() > baseline[column])
+
+
+def edge_details(baseline, filters, baseline_label="Noisy (no filter)"):
+    """Edge precision, recall and F1 of every filter, with the unfiltered image last."""
+    table = []
+    for _, row in [*filters.iterrows(), (None, baseline)]:
+        table.append({
+            "Filter": baseline_label if is_baseline(row["Filter"]) else short_name(row["Filter"]),
+            "Edge Precision": show_number(row.get("Edge_Precision_mean")),
+            "Edge Recall": show_number(row.get("Edge_Recall_mean")),
+            "Edge F1": show_number(row.get("Edge_F1_mean")),
+        })
+    return pd.DataFrame(table)
 
 
 def find_close_filters(filters):
@@ -92,16 +138,17 @@ def find_close_filters(filters):
     return close
 
 
-def count_best_images(rows, noise_type, level, filter_name):
-    """Counts images where this filter has the highest PSNR (ties count)."""
+def count_best_images(rows, noise_type, level, filter_name, metric="PSNR"):
+    """Counts images where this filter has the highest score (ties count)."""
+    column = METRICS[metric][0]
     chosen = rows[
         (rows["Noise_Type"] == noise_type)
         & (rows["Noise_Level"] == level)
-        & (rows["Filter"] != BASELINE_NAME)
+        & (~rows["Filter"].isin(BASELINE_NAMES))
     ]
-    best_for_image = chosen.groupby("Image")["PSNR"].transform("max")
+    best_for_image = chosen.groupby("Image")[column].transform("max")
     winners = chosen[
-        (chosen["Filter"] == filter_name) & (chosen["PSNR"] == best_for_image)
+        (chosen["Filter"] == filter_name) & (chosen[column] == best_for_image)
     ]
     return winners["Image"].nunique(), chosen["Image"].nunique()
 
@@ -160,6 +207,37 @@ def describe_parameter_source(config):
     return f"Tuned settings from {source['file']}", False
 
 
+def is_degradation_run(config):
+    """True for JPEG / glare experiments. Older runs are all noise runs."""
+    return config["required_to_rerun"].get("experiment", "noise") == "degradation"
+
+
+def unfiltered_words(config):
+    """(table column, sentence text, row label) for the image before filtering."""
+    if is_degradation_run(config):
+        return "Degraded", "degraded image", "Degraded (no filter)"
+    return "Noisy", "noisy image", "Noisy (no filter)"
+
+
+def condition_meaning(config, condition_type):
+    """What the saved strength number means, e.g. 'JPEG quality ...'."""
+    needed = config["required_to_rerun"]
+    block = needed["degradation"] if is_degradation_run(config) else needed["noise"]
+    return block["parameter_meaning"][condition_type]
+
+
+def seed_rule(config):
+    """The random seed rule that applies to this run, in plain text."""
+    needed = config["required_to_rerun"]
+    if is_degradation_run(config):
+        glare = needed["degradation"]["seed_policy"]["glare"]
+        return (
+            f"Glare: `{glare['formula']}` (same spot for every strength). "
+            "JPEG compression is not random."
+        )
+    return f"`{needed['noise']['seed_policy']['formula']}`"
+
+
 def describe_run(run_name, config):
     dataset = config["required_to_rerun"]["dataset"]
     source = config["required_to_rerun"]["parameter_source"]
@@ -178,9 +256,14 @@ def describe_run(run_name, config):
     count = dataset["images_processed"]
     images = dataset["images"][0]["filename"] if count == 1 else f"{count} images"
     conditions = len(config["required_to_rerun"]["conditions"])
-    noise = "all 12 noise conditions" if conditions == 12 else (
-        "1 noise condition" if conditions == 1 else f"{conditions} noise conditions"
-    )
+    if is_degradation_run(config):
+        noise = f"all {conditions} degradation conditions" if conditions == 6 else (
+            "1 degradation condition" if conditions == 1 else f"{conditions} degradation conditions"
+        )
+    else:
+        noise = "all 12 noise conditions" if conditions == 12 else (
+            "1 noise condition" if conditions == 1 else f"{conditions} noise conditions"
+        )
     return f"{run_name}: {dataset['name']}, {images}, {noise}, {settings}"
 
 
@@ -220,20 +303,23 @@ def comparison_images(config, run_name, noise_type, level, results_dir=RESULTS_D
     return pictures
 
 
-def image_scores(rows, noise_type, level, image_name):
-    """One image's saved scores, best PSNR first, with the noisy image last."""
+def image_scores(rows, noise_type, level, image_name, baseline_label="Noisy (no filter)"):
+    """One image's saved scores, best PSNR first, with the unfiltered image last."""
     chosen = rows[
         (rows["Noise_Type"] == noise_type)
         & (rows["Noise_Level"] == level)
         & (rows["Image"] == image_name)
     ]
-    filters = chosen[chosen["Filter"] != BASELINE_NAME].sort_values("PSNR", ascending=False)
-    noisy = chosen[chosen["Filter"] == BASELINE_NAME]
+    filters = chosen[~chosen["Filter"].isin(BASELINE_NAMES)].sort_values("PSNR", ascending=False)
+    noisy = chosen[chosen["Filter"].isin(BASELINE_NAMES)]
+    both = pd.concat([filters, noisy])
+    edge_f1 = both["Edge_F1"] if "Edge_F1" in both.columns else [None] * len(both)
 
     table = pd.DataFrame({
-        "Filter": [short_name(name) for name in filters["Filter"]] + ["Noisy (no filter)"] * len(noisy),
-        "PSNR (dB)": [f"{value:.2f}" for value in [*filters["PSNR"], *noisy["PSNR"]]],
-        "SSIM": [f"{value:.3f}" for value in [*filters["SSIM"], *noisy["SSIM"]]],
+        "Filter": [short_name(name) for name in filters["Filter"]] + [baseline_label] * len(noisy),
+        "PSNR (dB)": [f"{value:.2f}" for value in both["PSNR"]],
+        "SSIM": [f"{value:.3f}" for value in both["SSIM"]],
+        "Edge F1": [show_number(value) for value in edge_f1],
     })
 
     if len(filters) > 1:
@@ -253,16 +339,19 @@ def describe_run_type(config):
     images = needed["dataset"]["images_processed"]
     image_text = "1 image" if images == 1 else f"{images} images"
     conditions = needed["conditions"]
+    kind = "degradation" if is_degradation_run(config) else "noise"
 
     if len(conditions) > 1:
         return (
-            f"All {len(conditions)} noise conditions on {image_text} from "
-            f"{needed['dataset']['name']} (full experiment)."
+            f"All {len(conditions)} {kind} conditions on {image_text} from "
+            f"{needed['dataset']['name']}"
+            + (" (image degradation experiment, separate from noise)." if kind == "degradation"
+               else " (full experiment).")
         )
 
     only = conditions[0]
     return (
-        f"One noise condition ({only['level']} {only['noise_type']}) on {image_text} "
+        f"One {kind} condition ({only['level']} {only['noise_type']}) on {image_text} "
         f"from {needed['dataset']['name']}."
     )
 
@@ -275,54 +364,71 @@ def condition_presets(config, noise_type, level):
     return source.get("filters")
 
 
-def condition_overview(summary, rows, conditions):
-    """One row per noise condition: which filter had the best average PSNR."""
+def condition_overview(summary, rows, conditions, metric="PSNR", kind="Noise", unfiltered="Noisy"):
+    """One row per condition: which filter had the best average score for one metric.
+
+    "Filtering helped?" is a separate question: did that best filter score
+    higher than the unfiltered image at all?
+    """
+    column, label, number_format = METRICS[metric]
+    unit = " (dB)" if metric == "PSNR" else ""
     table = []
 
     for condition in conditions:
         noise_type, level = condition["noise_type"], condition["level"]
-        baseline, filters = get_condition(summary, noise_type, level)
+        baseline, filters = get_condition(summary, noise_type, level, metric)
         best = filters.iloc[0]
-        wins, total = count_best_images(rows, noise_type, level, best["Filter"])
+        wins, total = count_best_images(rows, noise_type, level, best["Filter"], metric)
+        best_score, baseline_score = best[f"{column}_mean"], baseline[f"{column}_mean"]
 
-        if len(filters) > 1:
-            lead = best["PSNR_mean"] - filters.iloc[1]["PSNR_mean"]
-            result = "Close" if lead < CLOSE_RESULT_DB else "Clear"
-            lead_text = f"{lead:.2f}"
-        else:
-            result, lead_text = "Only one filter", "-"
-
-        table.append({
-            "Noise": noise_type,
+        row = {
+            kind: noise_type,
             "Strength": level,
             "Best filter": short_name(best["Filter"]),
-            "Average PSNR (dB)": f"{best['PSNR_mean']:.2f}",
-            "Noisy PSNR (dB)": f"{baseline['PSNR_mean']:.2f}",
-            "Lead (dB)": lead_text,
-            "Result": result,
-            "Best on": f"{wins} of {total} images",
-        })
+            f"Average {metric}{unit}": number_format.format(best_score),
+            f"{unfiltered} {metric}{unit}": number_format.format(baseline_score),
+            "Filtering helped?": "Yes" if best_score > baseline_score else "No",
+        }
+
+        lead = best_score - filters.iloc[1][f"{column}_mean"] if len(filters) > 1 else None
+        row[f"Lead{unit}"] = "-" if lead is None else number_format.format(lead)
+        # The "close" rule is defined in dB, so it is used only for PSNR.
+        if metric == "PSNR":
+            row["Result"] = (
+                "Only one filter" if lead is None else
+                "Close" if lead < CLOSE_RESULT_DB else "Clear"
+            )
+        row["Best on"] = f"{wins} of {total} images"
+        table.append(row)
 
     return pd.DataFrame(table)
 
 
-def psnr_by_condition(summary, conditions):
-    """Average PSNR of every filter in every condition (rows = conditions)."""
+def metric_by_condition(summary, conditions, metric="PSNR", unfiltered="Noisy"):
+    """Average score of every filter in every condition (rows = conditions)."""
+    column = METRICS[metric][0]
     rows = {}
     for condition in conditions:
         noise_type, level = condition["noise_type"], condition["level"]
-        baseline, filters = get_condition(summary, noise_type, level)
-        scores = {"Noisy": baseline["PSNR_mean"]}
-        scores.update({short_name(f): p for f, p in zip(filters["Filter"], filters["PSNR_mean"])})
+        baseline, filters = get_condition(summary, noise_type, level, metric)
+        scores = {unfiltered: baseline[f"{column}_mean"]}
+        scores.update({
+            short_name(f): p for f, p in zip(filters["Filter"], filters[f"{column}_mean"])
+        })
         rows[condition_label(noise_type, level)] = scores
 
     table = pd.DataFrame.from_dict(rows, orient="index")
     table.index.name = "Condition"
 
     # Keep the filters in the runner's order, not in score order
-    order = ["Noisy"] + [short_name(name) for name in summary["Filter"].drop_duplicates()
-                         if name != BASELINE_NAME]
+    order = [unfiltered] + [short_name(name) for name in summary["Filter"].drop_duplicates()
+                            if not is_baseline(name)]
     return table[[column for column in order if column in table.columns]]
+
+
+def psnr_by_condition(summary, conditions):
+    """Average PSNR of every filter in every condition (rows = conditions)."""
+    return metric_by_condition(summary, conditions, "PSNR")
 
 
 def table_height(rows):
@@ -330,7 +436,7 @@ def table_height(rows):
     return 38 + 35 * rows
 
 
-def image_across_conditions(rows, image_name, conditions):
+def image_across_conditions(rows, image_name, conditions, unfiltered="Noisy"):
     """One image's PSNR in every condition, with its best filter."""
     table = []
 
@@ -342,9 +448,11 @@ def image_across_conditions(rows, image_name, conditions):
             & (rows["Noise_Level"] == level)
         ]
         scores = dict(zip(chosen["Filter"], chosen["PSNR"]))
-        noisy = scores.pop(BASELINE_NAME, None)
+        noisy = None
+        for name in BASELINE_NAMES:
+            noisy = scores.pop(name, noisy)
         row = {"Condition": condition_label(noise_type, level)}
-        row["Noisy"] = f"{noisy:.2f}" if noisy is not None else "-"
+        row[unfiltered] = f"{noisy:.2f}" if noisy is not None else "-"
         row.update({short_name(name): f"{value:.2f}" for name, value in scores.items()})
         row["Best filter"] = short_name(max(scores, key=scores.get)) if scores else "-"
         table.append(row)

@@ -158,6 +158,15 @@ def preset_parameters(source_id, filter_name, filter_function, noise_type, noise
 
     if path is not None:
         saved = json.loads(path.read_text(encoding="utf-8"))
+
+        # Tuned files only hold noise conditions (tuned on Set12).
+        # Never fall back to other values for JPEG, glare, or anything else.
+        if noise_type not in saved:
+            raise ValueError(
+                f"{PARAMETER_SOURCES[source_id]['label']} were tuned for noise on Set12 "
+                f"and have no values for {noise_type}. Use Default parameters."
+            )
+
         values.update(saved[noise_type][noise_level][filter_name])
 
     return values
@@ -193,10 +202,20 @@ def validate_job_filters(job):
         raise ValueError("Choose at least one filter.")
 
     all_conditions = job.get("noise_scope") == "all"
+    is_degradation = job.get("experiment") == "degradation"
 
     for filter_name, entry in chosen.items():
         if not isinstance(entry, dict) or entry.get("preset") not in PARAMETER_SOURCES:
             raise ValueError(f"{filter_name} needs a known preset and its values.")
+
+        # Tuned presets were chosen for noise only, so they are not offered
+        # for JPEG compression or glare.
+        if is_degradation and entry["preset"] != "default":
+            raise ValueError(
+                f"{filter_name}: {PARAMETER_SOURCES[entry['preset']]['label']} were tuned "
+                "for noise on Set12 and are not available for JPEG compression or glare. "
+                "Use Default parameters (you can still edit the values)."
+            )
 
         # In a run over all noise conditions, "parameters": None means
         # "use the preset's own saved values for each condition".

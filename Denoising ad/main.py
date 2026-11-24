@@ -29,6 +29,13 @@ from filter import (
     apply_tv_filter
 )
 
+from edge_metrics import calculate_edge_metrics
+
+from image_degradation import (
+    add_jpeg_compression,
+    add_glare
+)
+
 from experiment_job import (
     PARAMETER_SOURCES,
     describe_preset_use,
@@ -61,8 +68,11 @@ MAX_IMAGES = None# Set to None to process the full dataset
 
 TUNED_PARAMETERS_FILE = Path("best_parameters.json")
 
-# Used only by frontend jobs (python main.py --job job.json)
-JOB_DATASETS = ("BSD68", "Set12")
+# Used only by frontend jobs (python main.py --job job.json).
+# Urban100_HR and original_png come from the teammate branch
+# feature/image_degradation-different_datasets-edge_preservation.
+# Parameter tuning still uses only Set12 (see tune_filters.py).
+JOB_DATASETS = ("BSD68", "Set12", "Urban100_HR", "original_png")
 JOB_RESULTS_PATH = PROJECT_DIR / "results"
 
 NOISE_LEVELS = {
@@ -90,6 +100,30 @@ NOISE_LEVELS = {
         "High": 10
     }
 }
+
+# Image damage that is not noise (from the teammate branch). Kept apart from
+# NOISE_LEVELS, so "all noise conditions" still means the 12 noise conditions.
+# Only frontend jobs with "experiment": "degradation" use these.
+DEGRADATION_LEVELS = {
+    "JPEG Compression": {   # JPEG quality: lower means stronger damage
+        "Low": 90,
+        "Medium": 60,
+        "High": 30
+    },
+
+    "Glare": {              # glare strength alpha: higher means stronger
+        "Low": 0.20,
+        "Medium": 0.45,
+        "High": 0.70
+    }
+}
+
+# Glare uses slot 5 of the seed rule (noise types use slots 0-3, JPEG is 4
+# but needs no seed). The level is not part of the glare seed.
+GLARE_SEED_OFFSET = 500
+
+NOISY_BASELINE = "Noisy (Baseline)"
+DEGRADED_BASELINE = "Degraded (Baseline)"
 
 
 # --------------------------------------------------
@@ -150,6 +184,18 @@ def generate_noisy_image(image, noise_type, noise_level, seed):
          image, noise_level, seed )
 
 
+def generate_degraded_image(image, degradation_type, value, seed):
+    """JPEG compression (value = quality) or glare (value = strength)."""
+
+    if degradation_type == "JPEG Compression":
+        return add_jpeg_compression(image, value)
+
+    elif degradation_type == "Glare":
+        return add_glare(image, value, seed)
+
+    raise ValueError(f"Unknown degradation: {degradation_type}")
+
+
 
 # --------------------------------------------------
 # 4. EVALUATION
@@ -170,6 +216,21 @@ def calculate_metrics(original_image, processed_image):
     )
 
     return psnr, ssim
+
+
+def edge_columns(original_image, processed_image):
+    """Edge-preservation scores for one result row (see edge_metrics.py)."""
+
+    precision, recall, f1_score = calculate_edge_metrics(
+        original_image,
+        processed_image
+    )
+
+    return {
+        "Edge_Precision": precision,
+        "Edge_Recall": recall,
+        "Edge_F1": f1_score
+    }
 
 
 # --------------------------------------------------
@@ -209,6 +270,16 @@ def noise_seed(image_index, noise_index, level_index):
     )
 
 
+def glare_seed(image_index):
+    """One seed per image, the same for Low, Medium and High.
+
+    The seed places the glare spot, so only the strength changes between
+    levels. JPEG compression is not random and needs no seed.
+    """
+
+    return BASE_SEED + image_index * 1000 + GLARE_SEED_OFFSET
+
+
 def get_filter_parameters(filter_name, filter_function, noise_type,
                           level_name, noise_value, tuned_parameters):
 
@@ -237,7 +308,17 @@ def run_experiments(images, tuned_parameters=None, selection=None):
     if tuned_parameters is None:
         tuned_parameters = load_tuned_parameters()
 
-    noise_types = list(NOISE_LEVELS.keys())
+    # Noise experiments (default) or image degradation experiments.
+    # Both use the same filters, scores, timer and saving below.
+    is_degradation = (
+        selection is not None
+        and selection.get("experiment") == "degradation"
+    )
+    condition_levels = DEGRADATION_LEVELS if is_degradation else NOISE_LEVELS
+    baseline_name = DEGRADED_BASELINE if is_degradation else NOISY_BASELINE
+    category = "Image degradation" if is_degradation else "Noise"
+
+    noise_types = list(condition_levels.keys())
 
     active_filters = filters
     report_progress = None
@@ -266,7 +347,7 @@ def run_experiments(images, tuned_parameters=None, selection=None):
         for noise_index, noise_type in enumerate(noise_types):
 
             for level_index, (level_name, noise_value) in enumerate(
-                NOISE_LEVELS[noise_type].items()
+                condition_levels[noise_type].items()
             ):
 
                 # A selection with condition None means "all conditions".
@@ -277,31 +358,48 @@ def run_experiments(images, tuned_parameters=None, selection=None):
                 ):
                     continue
 
-                # Generate one noisy image for all filters
-                seed = noise_seed(image_index, noise_index, level_index)
+                # Generate one damaged image for all filters. In degradation
+                # experiments "noisy_image" holds the JPEG or glare image.
+                if is_degradation:
+                    seed = glare_seed(image_index) if noise_type == "Glare" else None
 
-                noisy_image = generate_noisy_image(
-                    original_image,
-                    noise_type,
-                    noise_value,
-                    seed
-                )
+                    noisy_image = generate_degraded_image(
+                        original_image,
+                        noise_type,
+                        noise_value,
+                        seed
+                    )
+                else:
+                    seed = noise_seed(image_index, noise_index, level_index)
 
-                # Evaluate noisy image before filtering
+                    noisy_image = generate_noisy_image(
+                        original_image,
+                        noise_type,
+                        noise_value,
+                        seed
+                    )
+
+                # Evaluate the damaged image before filtering
                 psnr, ssim = calculate_metrics(
                     original_image,
                     noisy_image
                 )
 
-                results.append({
+                baseline_row = {
                     "Image": image_name,
                     "Noise_Type": noise_type,
                     "Noise_Level": level_name,
-                    "Filter": "Noisy (Baseline)",
+                    "Filter": baseline_name,
                     "PSNR": psnr,
                     "SSIM": ssim,
-                    "Execution_Time": 0
-                })
+                    "Execution_Time": 0,
+                    **edge_columns(original_image, noisy_image)
+                }
+
+                if is_degradation:
+                    baseline_row["Category"] = category
+
+                results.append(baseline_row)
                 filtered_images = {}
 
                 # Apply every filter to the same noisy image
@@ -333,15 +431,26 @@ def run_experiments(images, tuned_parameters=None, selection=None):
                         filtered_image
                     )
 
-                    results.append({
+                    filter_row = {
                         "Image": image_name,
                         "Noise_Type": noise_type,
                         "Noise_Level": level_name,
                         "Filter": filter_name,
                         "PSNR": psnr,
                         "SSIM": ssim,
-                        "Execution_Time": execution_time
-                    })
+                        "Execution_Time": execution_time,
+                        **edge_columns(original_image, filtered_image)
+                    }
+
+                    if is_degradation:
+                        filter_row["Category"] = category
+
+                    results.append(filter_row)
+
+                # Degradation pictures say "Degraded" instead of "Noisy".
+                # Noise runs call save_image_comparison exactly as before.
+                picture_options = {"kind": "degradation"} if is_degradation else {}
+
                 # Full-dataset jobs: one picture for every image, made from
                 # the images already filtered above.
                 if selection is not None and selection["image"] is None:
@@ -360,7 +469,8 @@ def run_experiments(images, tuned_parameters=None, selection=None):
                                 noise_type, level_name, image_index, image_name,
                                 extension=".jpg" if compact else ".png"
                             ),
-                            compact=compact
+                            compact=compact,
+                            **picture_options
                         )
 
                 # Other runs: one example picture, for the first image
@@ -370,7 +480,8 @@ def run_experiments(images, tuned_parameters=None, selection=None):
                         noisy_image,
                         filtered_images,
                         noise_type,
-                        level_name
+                        level_name,
+                        **picture_options
                     )
 
         images_done += 1
@@ -383,14 +494,15 @@ def run_experiments(images, tuned_parameters=None, selection=None):
 
 def save_image_comparison(original, noisy, filtered_images,
                           noise_type, noise_level, file_name=None,
-                          compact=False):
+                          compact=False, kind="noise"):
 
     output_dir = RESULTS_PATH / "comparisons"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # In degradation experiments the damaged image is JPEG or glare, not noise
     images = [
         ("Original", original),
-        ("Noisy", noisy)
+        ("Degraded" if kind == "degradation" else "Noisy", noisy)
     ]
 
     images.extend(filtered_images.items())
@@ -419,7 +531,8 @@ def save_image_comparison(original, noisy, filtered_images,
         axes[i].axis("off")
 
     fig.suptitle(
-        f"{noise_type} Noise - {noise_level}",
+        f"{noise_type} - {noise_level}" if kind == "degradation"
+        else f"{noise_type} Noise - {noise_level}",
         fontsize=16
     )
 
@@ -513,7 +626,10 @@ def save_results(results):
     ).agg({
         "PSNR": ["mean", "std"],
         "SSIM": ["mean", "std"],
-        "Execution_Time": ["mean", "std"]
+        "Execution_Time": ["mean", "std"],
+        "Edge_Precision": ["mean", "std"],
+        "Edge_Recall": ["mean", "std"],
+        "Edge_F1": ["mean", "std"]
     }).reset_index()
 
     summary.to_csv(
@@ -536,7 +652,10 @@ def create_graphs(results):
     metrics = [
         ("PSNR", "PSNR (dB)"),
         ("SSIM", "SSIM"),
-        ("Execution_Time", "Execution Time (seconds)")
+        ("Execution_Time", "Execution Time (seconds)"),
+        ("Edge_Precision", "Edge Precision"),
+        ("Edge_Recall", "Edge Recall"),
+        ("Edge_F1", "Edge F1-score")
     ]
 
     level_order = ["Low", "Medium", "High"]
@@ -690,6 +809,8 @@ def build_current_run_config(images, tuned_parameters, selection=None):
         tuned_file=TUNED_PARAMETERS_FILE,
         get_seed=noise_seed,
         get_parameters=get_filter_parameters,
+        degradation_levels=DEGRADATION_LEVELS,
+        glare_seed_offset=GLARE_SEED_OFFSET,
         image_indices=image_indices,
         job=job,
         parameter_label=parameter_label,
@@ -760,7 +881,18 @@ def prepare_job(job):
     if job["dataset"] not in JOB_DATASETS:
         raise ValueError(f"Unknown dataset: {job['dataset']}")
 
-    # "all" runs every noise type at every level, like the terminal run.
+    # "noise" (also older jobs without this field) or "degradation"
+    experiment = job.get("experiment", "noise")
+    if experiment not in ("noise", "degradation"):
+        raise ValueError(f"Unknown experiment: {experiment}")
+
+    condition_levels = DEGRADATION_LEVELS if experiment == "degradation" else NOISE_LEVELS
+
+    if experiment == "degradation" and isinstance(job["filters"], list):
+        raise ValueError("Degradation experiments need per-filter settings.")
+
+    # "all" runs every condition of this experiment at every level:
+    # the 12 noise conditions, or the 6 degradation conditions.
     all_conditions = job.get("noise_scope") == "all"
 
     if all_conditions:
@@ -769,13 +901,13 @@ def prepare_job(job):
                 "All noise conditions need a full-dataset job with per-filter settings."
             )
         conditions = [
-            (noise_type, level) for noise_type, levels in NOISE_LEVELS.items()
+            (noise_type, level) for noise_type, levels in condition_levels.items()
             for level in levels
         ]
     else:
-        if job["noise_level"] not in NOISE_LEVELS.get(job["noise_type"], {}):
+        if job["noise_level"] not in condition_levels.get(job["noise_type"], {}):
             raise ValueError(
-                f"Unknown noise condition: {job['noise_type']} / {job['noise_level']}"
+                f"Unknown {experiment} condition: {job['noise_type']} / {job['noise_level']}"
             )
         conditions = [(job["noise_type"], job["noise_level"])]
 
@@ -837,6 +969,7 @@ def prepare_job(job):
 
     return {
         "image": image,
+        "experiment": experiment,
         "condition": None if all_conditions else conditions[0],
         "filters": selected_filters,
         "filter_parameters": filter_parameters,
