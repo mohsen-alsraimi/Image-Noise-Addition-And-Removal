@@ -75,6 +75,17 @@ def _run_git(*arguments):
     ).stdout
 
 
+def comparison_file_name(noise_type, noise_level, image_index, image_name,
+                         extension=".png"):
+    """Where a full-dataset run saves one image's comparison picture.
+
+    The dataset position makes the name unique, even if two images share
+    a name stem, e.g. "salt_and_pepper_medium/004_test005.png".
+    """
+    condition = f"{noise_type.lower().replace('-', '_').replace(' ', '_')}_{noise_level.lower()}"
+    return f"{condition}/{image_index:03d}_{Path(image_name).stem}{extension}"
+
+
 def get_git_info():
     """Describes the code state without changing anything in Git."""
     try:
@@ -180,12 +191,25 @@ def _describe_filter(name, function, supplied):
 
 def build_run_config(images, dataset_path, results_path, max_images,
                      noise_levels, base_seed, filters, tuned_parameters,
-                     tuned_file, get_seed, get_parameters):
+                     tuned_file, get_seed, get_parameters, image_indices=None,
+                     job=None, parameter_label=None, parameter_sources=None,
+                     parameter_sources_by_condition=None):
     """Builds the record using the runner's own seed and parameter rules."""
     conditions = []
 
+    if image_indices is None:
+        image_indices = range(len(images))
+
     for noise_index, (noise_type, levels) in enumerate(noise_levels.items()):
         for level_index, (level_name, noise_value) in enumerate(levels.items()):
+            # A job over all noise conditions keeps every condition.
+            if (
+                job is not None
+                and job.get("noise_scope") != "all"
+                and (noise_type, level_name) != (job["noise_type"], job["noise_level"])
+            ):
+                continue
+
             conditions.append({
                 "noise_type": noise_type,
                 "level": level_name,
@@ -208,7 +232,7 @@ def build_run_config(images, dataset_path, results_path, max_images,
 
     is_tuned = tuned_parameters is not None
 
-    return {
+    config = {
         "schema_version": 1,
         "run": {
             "result_directory": Path(results_path).name,
@@ -235,7 +259,7 @@ def build_run_config(images, dataset_path, results_path, max_images,
                         "height": image.shape[0],
                         "pixel_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
                     }
-                    for index, (name, image) in enumerate(images)
+                    for index, (name, image) in zip(image_indices, images)
                 ],
             },
             "noise": {
@@ -256,8 +280,8 @@ def build_run_config(images, dataset_path, results_path, max_images,
             "filters_executed": list(filters),
             "parameter_source": {
                 "mode": "tuned" if is_tuned else "function_defaults",
-                "file": _project_relative(tuned_file) if is_tuned else None,
-                "file_sha256": _file_sha256(tuned_file) if is_tuned else None,
+                "file": _project_relative(tuned_file) if is_tuned and tuned_file else None,
+                "file_sha256": _file_sha256(tuned_file) if is_tuned and tuned_file else None,
                 "values": "The actual values are recorded in conditions below.",
             },
             "conditions": conditions,
@@ -299,6 +323,31 @@ def build_run_config(images, dataset_path, results_path, max_images,
             ],
         },
     }
+
+    if job is not None:
+        config["run"]["job"] = job
+
+    if parameter_sources_by_condition is not None:
+        config["run"]["mode"] = "per_filter_parameters"
+        config["required_to_rerun"]["parameter_source"] = {
+            "mode": "per_filter",
+            "values": "Each filter's preset and final values, for every noise condition.",
+            "filters_by_condition": parameter_sources_by_condition,
+        }
+    elif parameter_sources is not None:
+        config["run"]["mode"] = "per_filter_parameters"
+        config["required_to_rerun"]["parameter_source"] = {
+            "mode": "per_filter",
+            "values": "Each filter's preset and final values are listed below.",
+            "filters": parameter_sources,
+        }
+    elif job is not None:
+        config["required_to_rerun"]["parameter_source"].update(
+            source_id=job["parameter_source"],
+            label=parameter_label,
+        )
+
+    return config
 
 
 def _json_value(value):

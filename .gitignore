@@ -1,0 +1,19 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Streamlit temporary files
+.frontend_jobs/
+
+# Locally generated experiment results
+/Denoising ad/results/
+
+# Experiment archives
+*.zip
+
+# Temporary files
+*.tmp

@@ -4,9 +4,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+import sys
 import time
 import json
 import inspect
+import traceback
 from pathlib import Path
 
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
@@ -27,8 +29,21 @@ from filter import (
     apply_tv_filter
 )
 
+from experiment_job import (
+    PARAMETER_SOURCES,
+    describe_preset_use,
+    mark_job,
+    parameter_file,
+    preset_parameters,
+    read_job,
+    validate_filter_parameters,
+    validate_job_filters
+)
+
 from run_metadata import (
+    PROJECT_DIR,
     build_run_config,
+    comparison_file_name,
     mark_run_completed,
     save_run_config
 )
@@ -45,6 +60,10 @@ BASE_SEED = 42
 MAX_IMAGES = None# Set to None to process the full dataset
 
 TUNED_PARAMETERS_FILE = Path("best_parameters.json")
+
+# Used only by frontend jobs (python main.py --job job.json)
+JOB_DATASETS = ("BSD68", "Set12")
+JOB_RESULTS_PATH = PROJECT_DIR / "results"
 
 NOISE_LEVELS = {
     "Gaussian": {
@@ -77,14 +96,19 @@ NOISE_LEVELS = {
 # 2. LOAD DATASET
 # --------------------------------------------------
 
+def find_image_paths(dataset_path):
+
+    return sorted(
+        list(dataset_path.rglob("*.png")) +
+        list(dataset_path.rglob("*.jpg")) +
+        list(dataset_path.rglob("*.bmp"))
+    )
+
+
 def load_dataset():
     images = []
 
-    image_paths = sorted(
-        list(DATASET_PATH.rglob("*.png")) +
-        list(DATASET_PATH.rglob("*.jpg")) +
-        list(DATASET_PATH.rglob("*.bmp"))
-    )
+    image_paths = find_image_paths(DATASET_PATH)
 
     for image_path in image_paths:
         image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
@@ -206,7 +230,7 @@ def get_filter_parameters(filter_name, filter_function, noise_type,
     return params
 
 
-def run_experiments(images, tuned_parameters=None):
+def run_experiments(images, tuned_parameters=None, selection=None):
 
     results = []
 
@@ -215,7 +239,27 @@ def run_experiments(images, tuned_parameters=None):
 
     noise_types = list(NOISE_LEVELS.keys())
 
+    active_filters = filters
+    report_progress = None
+    if selection is not None:
+        active_filters = {name: filters[name] for name in selection["filters"]}
+        report_progress = selection.get("report_progress")
+
+    # A selection with image None means "every image in the dataset".
+    images_total = sum(
+        1 for name, _ in images
+        if selection is None or selection["image"] in (None, name)
+    )
+    images_done = 0
+    if report_progress:
+        report_progress(images_done, images_total)
+
+    # Skip unselected items instead of removing them, so every image and
+    # noise condition keeps its original position and random seed.
     for image_index, (image_name, original_image) in enumerate(images):
+
+        if selection is not None and selection["image"] not in (None, image_name):
+            continue
 
         print(f"\nProcessing: {image_name}")
 
@@ -224,6 +268,14 @@ def run_experiments(images, tuned_parameters=None):
             for level_index, (level_name, noise_value) in enumerate(
                 NOISE_LEVELS[noise_type].items()
             ):
+
+                # A selection with condition None means "all conditions".
+                if (
+                    selection is not None
+                    and selection["condition"] is not None
+                    and (noise_type, level_name) != selection["condition"]
+                ):
+                    continue
 
                 # Generate one noisy image for all filters
                 seed = noise_seed(image_index, noise_index, level_index)
@@ -253,7 +305,7 @@ def run_experiments(images, tuned_parameters=None):
                 filtered_images = {}
 
                 # Apply every filter to the same noisy image
-                for filter_name, filter_function in filters.items():
+                for filter_name, filter_function in active_filters.items():
 
                     params = get_filter_parameters(
                         filter_name,
@@ -290,7 +342,29 @@ def run_experiments(images, tuned_parameters=None):
                         "SSIM": ssim,
                         "Execution_Time": execution_time
                     })
-                if image_index == 0:
+                # Full-dataset jobs: one picture for every image, made from
+                # the images already filtered above.
+                if selection is not None and selection["image"] is None:
+                    # Runs over all conditions save smaller JPEG pictures,
+                    # because they save 12 pictures for every image.
+                    compact = selection["condition"] is None
+
+                    if selection.get("save_pictures", True):
+                        save_image_comparison(
+                            original_image,
+                            noisy_image,
+                            filtered_images,
+                            noise_type,
+                            level_name,
+                            comparison_file_name(
+                                noise_type, level_name, image_index, image_name,
+                                extension=".jpg" if compact else ".png"
+                            ),
+                            compact=compact
+                        )
+
+                # Other runs: one example picture, for the first image
+                elif image_index == 0 or selection is not None:
                     save_image_comparison(
                         original_image,
                         noisy_image,
@@ -299,12 +373,17 @@ def run_experiments(images, tuned_parameters=None):
                         level_name
                     )
 
+        images_done += 1
+        if report_progress:
+            report_progress(images_done, images_total)
+
     return pd.DataFrame(results)
 
 
 
 def save_image_comparison(original, noisy, filtered_images,
-                          noise_type, noise_level):
+                          noise_type, noise_level, file_name=None,
+                          compact=False):
 
     output_dir = RESULTS_PATH / "comparisons"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -351,7 +430,15 @@ def save_image_comparison(original, noisy, filtered_images,
         f"_{noise_level.lower()}.png"
     )
 
-    plt.savefig(output_dir / filename, dpi=150)
+    # A given file_name may include a subfolder, e.g. one per noise condition
+    path = output_dir / (file_name or filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if compact:
+        # Same layout, smaller file: about 0.2 MB instead of 1.5 MB
+        plt.savefig(path, dpi=100, pil_kwargs={"quality": 85})
+    else:
+        plt.savefig(path, dpi=150)
     plt.close()
 
 
@@ -555,54 +642,237 @@ def next_results_path():
             if suffix.isdigit():
                 run_numbers.append(int(suffix))
 
-    return RESULTS_PATH / f"result{max(run_numbers, default=0) + 1}"
+    next_number = max(run_numbers, default=0) + 1
+
+    # Creating the folder reserves it, so two runs can never share it.
+    while True:
+        path = RESULTS_PATH / f"result{next_number}"
+        try:
+            path.mkdir()
+            return path
+        except FileExistsError:
+            next_number += 1
 
 
-def build_current_run_config(images, tuned_parameters):
+def build_current_run_config(images, tuned_parameters, selection=None):
+
+    chosen_images = images
+    chosen_filters = filters
+    image_indices = None
+    job = None
+    parameter_label = None
+    parameter_sources = None
+    parameter_sources_by_condition = None
+
+    if selection is not None:
+        if selection["image"] is not None:
+            image_indices = [
+                index for index, (name, _) in enumerate(images)
+                if name == selection["image"]
+            ]
+            chosen_images = [images[index] for index in image_indices]
+        chosen_filters = {name: filters[name] for name in selection["filters"]}
+        job = selection["job"]
+        parameter_sources = selection.get("parameter_sources")
+        parameter_sources_by_condition = selection.get("parameter_sources_by_condition")
+        if parameter_sources is None and parameter_sources_by_condition is None:
+            parameter_label = PARAMETER_SOURCES[job["parameter_source"]]["label"]
 
     return build_run_config(
-        images=images,
+        images=chosen_images,
         dataset_path=DATASET_PATH,
         results_path=RESULTS_PATH,
         max_images=MAX_IMAGES,
         noise_levels=NOISE_LEVELS,
         base_seed=BASE_SEED,
-        filters=filters,
+        filters=chosen_filters,
         tuned_parameters=tuned_parameters,
         tuned_file=TUNED_PARAMETERS_FILE,
         get_seed=noise_seed,
-        get_parameters=get_filter_parameters
+        get_parameters=get_filter_parameters,
+        image_indices=image_indices,
+        job=job,
+        parameter_label=parameter_label,
+        parameter_sources=parameter_sources,
+        parameter_sources_by_condition=parameter_sources_by_condition
     )
 
 
-def main():
+def main(selection=None):
 
     images = load_dataset()
 
+    if selection is not None and selection["image"] not in [
+        None, *(name for name, _ in images)
+    ]:
+        raise ValueError(
+            f"Image {selection['image']} was not found in {DATASET_PATH.name}."
+        )
+
     tuned_parameters = load_tuned_parameters()
+
+    # Settings chosen per filter in the frontend replace any file.
+    if selection is not None and selection.get("filter_parameters") is not None:
+        tuned_parameters = selection["filter_parameters"]
 
     global RESULTS_PATH
     RESULTS_PATH = next_results_path()
 
     # Save settings first, so a failed save stops the run early
-    run_config = build_current_run_config(images, tuned_parameters)
+    run_config = build_current_run_config(images, tuned_parameters, selection)
     save_run_config(RESULTS_PATH, run_config)
 
-    save_noise_comparison(
-    images[0][1],
-    images[0][0]
-    )
+    if selection is None:
+        save_noise_comparison(
+        images[0][1],
+        images[0][0]
+        )
 
-    results = run_experiments(images, tuned_parameters)
+    results = run_experiments(images, tuned_parameters, selection)
 
     save_results(results)
 
-    create_graphs(results)
+    if selection is None:
+        create_graphs(results)
 
     mark_run_completed(RESULTS_PATH, run_config)
 
     print("\nAll experiments completed!")
 
 
+# --------------------------------------------------
+# 10. FRONTEND JOBS
+# --------------------------------------------------
+
+def prepare_job(job):
+    """Checks a frontend job and points the normal runner at its settings."""
+
+    global DATASET_PATH, RESULTS_PATH, MAX_IMAGES, TUNED_PARAMETERS_FILE
+
+    if job.get("type") not in ("single_image", "full_dataset"):
+        raise ValueError(f"Unknown job type: {job.get('type')}")
+
+    # A full-dataset job uses every image, so it has no single image name.
+    image = job.get("image") if job["type"] == "single_image" else None
+    if job["type"] == "single_image" and not image:
+        raise ValueError("Choose an image for a single-image job.")
+
+    if job["dataset"] not in JOB_DATASETS:
+        raise ValueError(f"Unknown dataset: {job['dataset']}")
+
+    # "all" runs every noise type at every level, like the terminal run.
+    all_conditions = job.get("noise_scope") == "all"
+
+    if all_conditions:
+        if job["type"] != "full_dataset" or isinstance(job["filters"], list):
+            raise ValueError(
+                "All noise conditions need a full-dataset job with per-filter settings."
+            )
+        conditions = [
+            (noise_type, level) for noise_type, levels in NOISE_LEVELS.items()
+            for level in levels
+        ]
+    else:
+        if job["noise_level"] not in NOISE_LEVELS.get(job["noise_type"], {}):
+            raise ValueError(
+                f"Unknown noise condition: {job['noise_type']} / {job['noise_level']}"
+            )
+        conditions = [(job["noise_type"], job["noise_level"])]
+
+    unknown_filters = [name for name in job["filters"] if name not in filters]
+    if not job["filters"] or unknown_filters:
+        raise ValueError(f"Invalid filter selection: {list(job['filters'])}")
+
+    selected_filters = [name for name in filters if name in job["filters"]]
+    filter_parameters = None
+    parameter_sources = None
+    parameter_sources_by_condition = None
+
+    if isinstance(job["filters"], list):
+        # Older jobs: one parameter source for every filter.
+        TUNED_PARAMETERS_FILE = parameter_file(job["parameter_source"])
+    else:
+        # Newer jobs: every filter brings its own checked values.
+        validate_job_filters(job)
+        filter_parameters = {}
+        parameter_sources_by_condition = {}
+
+        for noise_type, noise_level in conditions:
+            chosen = {}
+            records = {}
+
+            for name in selected_filters:
+                entry = job["filters"][name]
+                values = entry["parameters"]
+
+                # None: use this preset's saved values for this condition
+                if values is None:
+                    values = preset_parameters(
+                        entry["preset"], name, filters[name], noise_type, noise_level
+                    )
+
+                values = validate_filter_parameters(name, values)
+                chosen[name] = values
+                records[name] = describe_preset_use(
+                    entry["preset"], name, filters[name], noise_type, noise_level, values
+                )
+                if all_conditions:
+                    records[name]["values_from"] = (
+                        "preset for each condition" if entry["parameters"] is None
+                        else "same values for every condition"
+                    )
+
+            filter_parameters.setdefault(noise_type, {})[noise_level] = chosen
+            parameter_sources_by_condition[f"{noise_type} / {noise_level}"] = records
+
+        if not all_conditions:
+            parameter_sources = records
+            parameter_sources_by_condition = None
+
+        TUNED_PARAMETERS_FILE = None
+
+    DATASET_PATH = PROJECT_DIR / "dataset" / job["dataset"]
+    RESULTS_PATH = JOB_RESULTS_PATH
+    MAX_IMAGES = None
+
+    return {
+        "image": image,
+        "condition": None if all_conditions else conditions[0],
+        "filters": selected_filters,
+        "filter_parameters": filter_parameters,
+        "parameter_sources": parameter_sources,
+        "parameter_sources_by_condition": parameter_sources_by_condition,
+        "save_pictures": job.get("save_pictures", True),
+        "job": job,
+    }
+
+
+def run_job(job_path):
+    """Runs one saved job and records whether it finished."""
+
+    job_dir = Path(job_path).resolve().parent
+    mark_job(job_dir, "running")
+
+    def report_progress(images_done, images_total):
+        mark_job(job_dir, "running", images_done=images_done, images_total=images_total)
+
+    try:
+        selection = prepare_job(read_job(job_path))
+        selection["report_progress"] = report_progress
+        main(selection)
+    except Exception as error:
+        traceback.print_exc()
+        incomplete = (
+            RESULTS_PATH.name if RESULTS_PATH.parent == JOB_RESULTS_PATH else None
+        )
+        mark_job(job_dir, "failed", error=str(error), incomplete_result=incomplete)
+        raise SystemExit(1)
+
+    mark_job(job_dir, "completed", result=RESULTS_PATH.name)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 3 and sys.argv[1] == "--job":
+        run_job(sys.argv[2])
+    else:
+        main()
