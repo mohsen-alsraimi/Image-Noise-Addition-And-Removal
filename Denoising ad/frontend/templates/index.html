@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Noise Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">◐</div>
+    <div>
+      <h1>Image Noise Lab</h1>
+      <p>Add noise to a photo, clean it with six filters, and see which one works best.</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="try" data-tip="Test one photo: add noise, clean it, and compare the filters side by side.">Try one photo</button>
+    <button class="tab" data-tab="batch" data-tip="Run the experiment on many photos at once and get average scores and charts.">Whole dataset</button>
+    <button class="tab" data-tab="saved" data-tip="Open an experiment that main.py already saved in the results folder.">Saved results</button>
+    <button class="tab" data-tab="learn" data-tip="Simple explanations of every noise type, filter and score.">How it works</button>
+  </nav>
+</header>
+
+<p class="hint">Tip: rest your mouse on any button for 1.5 seconds to see what it does.</p>
+
+<main>
+<!-- ================================================================ TRY ONE PHOTO -->
+<section id="tab-try" class="panel active">
+  <aside class="controls">
+
+    <div class="card step">
+      <div class="step-title"><span class="num">1</span> Choose a photo</div>
+      <div class="segmented" id="source-toggle">
+        <button class="seg active" data-value="dataset" data-tip="Pick one of the test photos that the project uses.">From dataset</button>
+        <button class="seg" data-value="upload" data-tip="Use your own photo. Colour photos are turned into grayscale.">Upload my photo</button>
+      </div>
+      <div id="source-dataset">
+        <div class="segmented small" id="dataset-toggle">
+          <button class="seg active" data-value="BSD68" data-tip="68 natural photos. The team uses these for the final test.">BSD68</button>
+          <button class="seg" data-value="Set12" data-tip="12 classic test photos. The team uses these to choose filter settings.">Set12</button>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+      <div id="source-upload" class="hidden">
+        <label class="dropzone" data-tip="Click to choose a PNG or JPG file from your computer, or drag one here.">
+          <input type="file" id="upload" accept="image/png,image/jpeg,image/bmp">
+          <span id="upload-label">Click or drop a photo here</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card step">
+      <div class="step-title"><span class="num">2</span> Add noise</div>
+      <div class="segmented" id="scope-toggle">
+        <button class="seg active" data-value="one" data-tip="Add one type of noise at one strength and look at the pictures.">One noise</button>
+        <button class="seg" data-value="all" data-tip="Try all 4 noise types at Low, Medium and High strength and get a score table.">All noises &amp; levels</button>
+      </div>
+      <div id="one-noise">
+        <label class="label">Noise type</label>
+        <div class="chips" id="noise-chips"></div>
+        <label class="label">Strength</label>
+        <div class="segmented small" id="level-toggle">
+          <button class="seg" data-value="Low" data-tip="A little noise.">Low</button>
+          <button class="seg active" data-value="Medium" data-tip="A medium amount of noise.">Medium</button>
+          <button class="seg" data-value="High" data-tip="A lot of noise.">High</button>
+          <button class="seg" data-value="Custom" data-tip="Choose your own strength with a slider.">Custom</button>
+        </div>
+        <div id="custom-level" class="hidden slider-row">
+          <input type="range" id="custom-value" data-tip="Drag to change how strong the noise is.">
+          <span class="value" id="custom-value-label"></span>
+        </div>
+        <p class="small-note" id="level-note"></p>
+      </div>
+      <label class="label">Random seed
+        <input type="number" id="seed" value="42" min="0" class="inline-input" data-tip="The starting number for the random noise. The same seed always makes exactly the same noise.">
+      </label>
+    </div>
+
+    <div class="card step">
+      <div class="step-title"><span class="num">3</span> Choose filters</div>
+      <div class="chips" id="filter-chips"></div>
+      <div class="row-links">
+        <button class="link" id="filters-all" data-tip="Select all six filters.">Select all</button>
+        <button class="link" id="filters-none" data-tip="Clear the selection.">Clear</button>
+      </div>
+      <label class="label">Filter settings</label>
+      <div class="segmented small" id="mode-toggle">
+        <button class="seg active" data-value="tuned" data-tip="Use the best settings that the team found on Set12 (best_parameters.json).">Recommended</button>
+        <button class="seg" data-value="default" data-tip="Use the basic default settings written in filter.py.">Default</button>
+        <button class="seg" data-value="custom" data-tip="Set the values yourself with sliders.">Custom</button>
+      </div>
+      <div id="custom-params" class="hidden"></div>
+    </div>
+
+    <button class="primary" id="run-single" data-tip="Add the noise, run the filters and show the results.">Run</button>
+  </aside>
+
+  <div class="results" id="single-results">
+    <div class="empty">
+      <div class="empty-icon">🖼️</div>
+      <h2>Pick a photo, a noise and some filters, then press Run.</h2>
+      <p>You will see the clean photo, the noisy photo and every cleaned version, with scores that tell you how close each one is to the clean photo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ WHOLE DATASET -->
+<section id="tab-batch" class="panel">
+  <aside class="controls">
+    <div class="card step">
+      <div class="step-title"><span class="num">1</span> Photos</div>
+      <div class="segmented small" id="batch-dataset">
+        <button class="seg active" data-value="BSD68" data-tip="68 natural photos, the final test set.">BSD68</button>
+        <button class="seg" data-value="Set12" data-tip="12 classic photos, used for tuning.">Set12</button>
+      </div>
+      <label class="label">How many photos: <b id="batch-count-label"></b></label>
+      <input type="range" id="batch-count" min="1" value="5" data-tip="Fewer photos = faster. Move it all the way right to use every photo.">
+    </div>
+    <div class="card step">
+      <div class="step-title"><span class="num">2</span> Noise</div>
+      <div class="chips" id="batch-noises"></div>
+      <label class="label">Strengths</label>
+      <div class="chips" id="batch-levels"></div>
+    </div>
+    <div class="card step">
+      <div class="step-title"><span class="num">3</span> Filters</div>
+      <div class="chips" id="batch-filters"></div>
+      <label class="label">Filter settings</label>
+      <div class="segmented small" id="batch-mode">
+        <button class="seg active" data-value="tuned" data-tip="The best settings from best_parameters.json, like main.py uses.">Recommended</button>
+        <button class="seg" data-value="default" data-tip="The default values from filter.py.">Default</button>
+      </div>
+    </div>
+    <p class="small-note" id="batch-estimate"></p>
+    <button class="primary" id="run-batch" data-tip="Start the experiment. You can keep using the page while it runs.">Start experiment</button>
+  </aside>
+  <div class="results" id="batch-results">
+    <div class="empty">
+      <div class="empty-icon">📊</div>
+      <h2>Run the experiment on many photos</h2>
+      <p>The program adds noise to every photo, runs the filters and then shows the average scores as charts and a table. It uses the same random seeds as main.py, so the numbers match the team's experiments.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ SAVED RESULTS -->
+<section id="tab-saved" class="panel">
+  <aside class="controls">
+    <div class="card step">
+      <div class="step-title"><span class="num">1</span> Pick a saved run</div>
+      <select id="saved-select" data-tip="Each folder was made by running main.py. Higher numbers are newer runs."></select>
+      <button class="primary" id="load-saved" data-tip="Show the charts, table and comparison pictures of this run.">Open</button>
+    </div>
+  </aside>
+  <div class="results" id="saved-results">
+    <div class="empty">
+      <div class="empty-icon">🗂️</div>
+      <h2>Look at experiments that were already run</h2>
+      <p>No need to open CSV files or the results folder: pick a run and see its statistics and pictures here.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ LEARN -->
+<section id="tab-learn" class="panel learn">
+  <div class="learn-intro card">
+    <h2>The idea in one sentence</h2>
+    <p>We take a clean photo, <b>damage it on purpose</b> with noise, try to <b>repair it</b> with a filter, and then <b>measure</b> how close the repaired photo is to the clean one.</p>
+    <div class="pipeline">
+      <div class="pipe">📷 Clean photo</div><div class="arrow">→</div>
+      <div class="pipe orange">＋ Noise</div><div class="arrow">→</div>
+      <div class="pipe green">🧹 Filter</div><div class="arrow">→</div>
+      <div class="pipe purple">📏 Score</div>
+    </div>
+    <p class="small-note">A photo is a grid of numbers. Each pixel is a brightness from 0 (black) to 1 (white).</p>
+  </div>
+  <h2 class="learn-h">The four kinds of noise</h2>
+  <div class="learn-grid" id="learn-noise"></div>
+  <h2 class="learn-h">The six filters</h2>
+  <div class="learn-grid" id="learn-filters"></div>
+  <h2 class="learn-h">How we score a result</h2>
+  <div class="learn-grid" id="learn-scores"></div>
+</section>
+</main>
+
+<!-- big view for one result -->
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <button class="close" id="modal-close" data-tip="Close this view.">✕</button>
+    <h3 id="modal-title"></h3>
+    <div class="segmented small" id="compare-toggle">
+      <button class="seg active" data-value="noisy" data-tip="Slide between the noisy photo and the cleaned photo.">Noisy vs cleaned</button>
+      <button class="seg" data-value="original" data-tip="Slide between the clean original and the cleaned photo.">Original vs cleaned</button>
+      <button class="seg" data-value="diff" data-tip="Bright spots show where the cleaned photo is still different from the original.">Where it differs</button>
+      <button class="seg" data-value="zoom" data-tip="Look at the real pixels up close: the clean, noisy and cleaned photo side by side, greatly enlarged.">Zoom into pixels</button>
+    </div>
+    <div class="compare" id="compare">
+      <img id="cmp-a" alt="">
+      <div class="cmp-top" id="cmp-top"><img id="cmp-b" alt=""></div>
+      <div class="cmp-handle" id="cmp-handle"></div>
+      <span class="cmp-tag left" id="cmp-tag-a"></span><span class="cmp-tag right" id="cmp-tag-b"></span>
+    </div>
+    <div class="zoom-view hidden" id="zoom-view">
+      <div class="zoom-pick">
+        <div class="zoom-overview" id="zoom-overview" data-tip="Click anywhere on this picture to choose the spot you want to zoom into.">
+          <img id="zoom-overview-img" alt="Choose a spot">
+          <div class="zoom-box" id="zoom-box"></div>
+        </div>
+        <label class="label">Zoom area: <b id="zoom-size-label"></b></label>
+        <input type="range" id="zoom-size" min="12" max="96" step="4" value="32" data-tip="Smaller area = bigger pixels. Each square you see is one real pixel.">
+      </div>
+      <div class="zoom-panels">
+        <figure><canvas id="zoom-original" width="300" height="300"></canvas><figcaption>Original</figcaption></figure>
+        <figure><canvas id="zoom-noisy" width="300" height="300"></canvas><figcaption>Noisy</figcaption></figure>
+        <figure><canvas id="zoom-cleaned" width="300" height="300"></canvas><figcaption id="zoom-cleaned-label">Cleaned</figcaption></figure>
+      </div>
+    </div>
+    <p class="small-note" id="modal-note">Drag the line to compare.</p>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="toast hidden" id="toast"></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
