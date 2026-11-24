@@ -13,7 +13,9 @@ mode works from start to finish.
 """
 
 import io
+import json
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -60,6 +62,15 @@ class WebsiteTestCase(unittest.TestCase):
 
     def upload(self, name, content):
         return self.run_single(upload=(io.BytesIO(content), name))
+
+    def wait_for(self, job_id, timeout=120):
+        end = time.time() + timeout
+        while time.time() < end:
+            status = self.client.get(f"/api/batch/{job_id}").get_json()
+            if status["state"] != "running":
+                return status
+            time.sleep(0.2)
+        self.fail("The experiment did not finish in time.")
 
 
 class PageTests(WebsiteTestCase):
@@ -183,15 +194,6 @@ class UploadTests(WebsiteTestCase):
 
 class WholeDatasetTests(WebsiteTestCase):
 
-    def wait_for(self, job_id, timeout=120):
-        end = time.time() + timeout
-        while time.time() < end:
-            status = self.client.get(f"/api/batch/{job_id}").get_json()
-            if status["state"] != "running":
-                return status
-            time.sleep(0.2)
-        self.fail("The experiment did not finish in time.")
-
     def test_batch_runs_and_matches_main_py_seeds(self):
         body = {"dataset": "Set12", "count": 2, "noises": ["Speckle"], "levels": ["Low", "High"],
                 "filters": ["Lee Filter"], "mode": "tuned"}
@@ -246,6 +248,167 @@ class SavedResultsTests(WebsiteTestCase):
         data = self.client.get(f"/api/saved/{name}").get_json()
         self.assertGreater(data["images"], 0)
         self.assertTrue(data["summary"])
+
+
+class AccuracyTests(WebsiteTestCase):
+
+    def test_mse_matches_the_formula_and_psnr(self):
+        data = self.run_single(seed="3").get_json()
+        original = website.load_gray(website.DATASETS["BSD68"] / "test001.png")
+        noisy = project.generate_noisy_image(original, "Gaussian", 25, 3)
+        mse = np.mean((original.astype(np.float64) - noisy.astype(np.float64)) ** 2)
+        self.assertAlmostEqual(data["noisy_mse"], round(mse, 6), places=6)
+        # PSNR (with a peak of 1) must agree with MSE: PSNR = 10 * log10(1 / MSE)
+        self.assertAlmostEqual(data["noisy_psnr"], round(10 * np.log10(1 / mse), 2), places=1)
+
+    def test_identical_images_give_infinite_psnr_without_breaking(self):
+        image = website.load_gray(website.DATASETS["Set12"] / "01.png")
+        result = website.score(image, image.copy())
+        self.assertTrue(result["identical"])
+        self.assertIsNone(result["psnr"])
+        self.assertEqual(result["mse"], 0.0)
+        self.assertAlmostEqual(result["ssim"], 1.0, places=3)
+        json.dumps(result)  # must be valid JSON (no "Infinity")
+
+    def test_noise_statistics_are_measured(self):
+        data = self.run_single(noise="Salt-and-Pepper", level="Medium").get_json()
+        # about 10% of the pixels are turned black or white
+        self.assertAlmostEqual(data["stats"]["changed_share"], 0.10, delta=0.02)
+        gaussian = self.run_single(noise="Gaussian", level="Medium").get_json()
+        self.assertAlmostEqual(gaussian["stats"]["measured_sigma"], 25, delta=4)  # a little less because of clipping
+
+    def test_fingerprints_are_stable_and_change_with_the_seed(self):
+        a = self.run_single(seed="9").get_json()["run_info"]
+        b = self.run_single(seed="9").get_json()["run_info"]
+        c = self.run_single(seed="10").get_json()["run_info"]
+        self.assertEqual(a["noisy_fingerprint"], b["noisy_fingerprint"])
+        self.assertNotEqual(a["noisy_fingerprint"], c["noisy_fingerprint"])
+        self.assertEqual(a["image_fingerprint"], c["image_fingerprint"])
+
+
+class InputCheckTests(WebsiteTestCase):
+
+    def test_even_window_size_is_refused(self):
+        response = self.run_single(mode="custom", filters=["Median Filter"], **{"Median Filter::kernel_size": "4"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("odd", response.get_json()["error"])
+
+    def test_setting_outside_its_range_is_refused(self):
+        response = self.run_single(mode="custom", filters=["TV Filter"], **{"TV Filter::weight": "9"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("between", response.get_json()["error"])
+
+    def test_setting_that_is_not_a_number_is_refused(self):
+        response = self.run_single(mode="custom", filters=["Gaussian Filter"], **{"Gaussian Filter::sigma": "abc"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_custom_noise_strength_outside_range_is_refused(self):
+        response = self.run_single(noise="Gaussian", level="Custom", custom_value="500")
+        self.assertEqual(response.status_code, 400)
+
+    def test_bad_seed_and_unknown_noise_are_refused(self):
+        self.assertEqual(self.run_single(seed="-1").status_code, 400)
+        self.assertEqual(self.run_single(seed="abc").status_code, 400)
+        self.assertEqual(self.run_single(noise="Rain").status_code, 400)
+
+
+class ReproducibilityTests(WebsiteTestCase):
+
+    def test_run_info_holds_everything_needed_to_repeat(self):
+        info = self.run_single(seed="11", mode="default").get_json()["run_info"]
+        for key in ("image", "image_fingerprint", "seed", "noise", "level", "noise_value", "settings_mode",
+                    "filters", "versions", "noisy_fingerprint"):
+            self.assertIn(key, info)
+        self.assertEqual(info["seed"], 11)
+        self.assertEqual(set(info["filters"]), set(FAST_FILTERS))
+        self.assertIn("numpy", info["versions"])
+
+    def test_repeating_the_run_from_its_info_gives_the_same_pixels(self):
+        first = self.run_single(seed="21", noise="Speckle", level="High").get_json()
+        info = first["run_info"]
+        again = self.run_single(seed=str(info["seed"]), noise=info["noise"], level=info["level"]).get_json()
+        self.assertEqual(again["run_info"]["noisy_fingerprint"], info["noisy_fingerprint"])
+        for a, b in zip(first["filters"], again["filters"]):
+            self.assertEqual(a["fingerprint"], b["fingerprint"])
+            self.assertEqual(a["psnr"], b["psnr"])
+
+
+class SweepTests(WebsiteTestCase):
+
+    def sweep(self, **fields):
+        data = {"dataset": "Set12", "image": "01.png", "noise": "Salt-and-Pepper", "level": "Medium",
+                "seed": "42", "filter": "Median Filter", "param": "kernel_size"}
+        data.update(fields)
+        return self.client.post("/api/sweep", data=data, content_type="multipart/form-data")
+
+    def test_sweep_tries_every_value_and_picks_the_best(self):
+        data = self.sweep().get_json()
+        self.assertEqual([r["value"] for r in data["rows"]], [3, 5, 7, 9, 11])
+        best = max(data["rows"], key=lambda r: r["psnr"])
+        self.assertEqual(data["best"]["value"], best["value"])
+
+    def test_sweep_matches_a_single_run_with_the_same_value(self):
+        data = self.sweep(seed="5").get_json()
+        row = next(r for r in data["rows"] if r["value"] == 5)
+        single = self.run_single(dataset="Set12", image="01.png", noise="Salt-and-Pepper", level="Medium", seed="5",
+                                 mode="custom", filters=["Median Filter"], **{"Median Filter::kernel_size": "5"}).get_json()
+        self.assertEqual(row["psnr"], single["filters"][0]["psnr"])
+
+    def test_long_ranges_are_limited(self):
+        data = self.sweep(filter="Bilateral Filter", param="sigma_space", noise="Gaussian").get_json()
+        self.assertLessEqual(len(data["rows"]), website.MAX_SWEEP_VALUES)
+
+    def test_bad_sweep_requests_are_refused(self):
+        self.assertEqual(self.sweep(filter="Nope").status_code, 400)
+        self.assertEqual(self.sweep(param="nope").status_code, 400)
+
+
+class RepeatAndSaveTests(WebsiteTestCase):
+
+    def test_repeats_add_new_seeds_and_a_spread(self):
+        body = {"dataset": "Set12", "count": 2, "noises": ["Gaussian"], "levels": ["Medium"],
+                "filters": ["Gaussian Filter"], "mode": "tuned", "repeats": 3}
+        job = self.client.post("/api/batch", json=body).get_json()["job"]
+        status = self.wait_for(job)
+        self.assertEqual(status["done"], 2 * 3)
+        row = next(r for r in status["summary"] if r["filter"] == "Gaussian Filter")
+        self.assertEqual(row["runs"], 6)
+        self.assertGreater(row["psnr_std"], 0)
+        csv = self.client.get(f"/api/batch/{job}/csv").data.decode().strip().splitlines()
+        seeds = {line.split(",")[4] for line in csv[1:]}
+        self.assertEqual(len(seeds), 2 * 3)  # every image and repeat has its own seed
+        config = json.loads(self.client.get(f"/api/batch/{job}/config").data)
+        self.assertEqual(config["repeats"], 3)
+
+    def test_too_many_repeats_are_refused(self):
+        body = {"dataset": "Set12", "count": 1, "repeats": 99}
+        self.assertEqual(self.client.post("/api/batch", json=body).status_code, 400)
+
+    def test_saved_run_appears_under_saved_results(self):
+        original = website.RESULTS_DIR
+        with tempfile.TemporaryDirectory() as folder:
+            website.RESULTS_DIR = Path(folder)
+            try:
+                body = {"dataset": "Set12", "count": 1, "noises": ["Speckle"], "levels": ["Low"],
+                        "filters": ["Lee Filter"], "mode": "tuned", "save": True}
+                job = self.client.post("/api/batch", json=body).get_json()["job"]
+                status = self.wait_for(job)
+                self.assertEqual(status["saved_to"], "result1")
+                saved = Path(folder) / "result1"
+                for name in ("experiment_results.csv", "summary.csv", "run_config.json"):
+                    self.assertTrue((saved / name).exists(), name)
+                self.assertIn("result1", self.client.get("/api/config").get_json()["results"])
+                opened = self.client.get("/api/saved/result1").get_json()
+                self.assertEqual(opened["images"], 1)
+                self.assertTrue(opened["has_config"])
+            finally:
+                website.RESULTS_DIR = original
+
+    def test_old_finished_jobs_are_forgotten(self):
+        for index in range(website.MAX_JOBS_KEPT + 5):
+            website.JOBS[f"old{index}"] = {"state": "finished", "started": index}
+        website.forget_old_jobs()
+        self.assertLess(len(website.JOBS), website.MAX_JOBS_KEPT)
 
 
 if __name__ == "__main__":

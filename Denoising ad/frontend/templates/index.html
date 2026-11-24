@@ -20,6 +20,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="try" data-tip="Test one photo: add noise, clean it, and compare the filters side by side.">Try one photo</button>
     <button class="tab" data-tab="batch" data-tip="Run the experiment on many photos at once and get average scores and charts.">Whole dataset</button>
+    <button class="tab" data-tab="sweep" data-tip="Try one filter setting at many values on the same noisy photo and see which value works best.">Find best setting</button>
     <button class="tab" data-tab="saved" data-tip="Open an experiment that main.py already saved in the results folder.">Saved results</button>
     <button class="tab" data-tab="learn" data-tip="Simple explanations of every noise type, filter and score.">How it works</button>
   </nav>
@@ -135,6 +136,13 @@
         <button class="seg" data-value="default" data-tip="The default values from filter.py.">Default</button>
       </div>
     </div>
+    <div class="card step">
+      <div class="step-title"><span class="num">4</span> Reliability</div>
+      <label class="label">Repeat with different random noise: <b id="batch-repeats-label"></b></label>
+      <input type="range" id="batch-repeats" min="1" max="5" value="1" data-tip="Run everything again with new random noise. More repeats = more trustworthy averages, and the table shows how much the scores vary (± spread).">
+      <label class="check" data-tip="Save the results like main.py does (results/resultN with the CSV files and run_config.json), so they appear under Saved results.">
+        <input type="checkbox" id="batch-save"> Save to the results folder</label>
+    </div>
     <p class="small-note" id="batch-estimate"></p>
     <button class="primary" id="run-batch" data-tip="Start the experiment. You can keep using the page while it runs.">Start experiment</button>
   </aside>
@@ -143,6 +151,45 @@
       <div class="empty-icon">📊</div>
       <h2>Run the experiment on many photos</h2>
       <p>The program adds noise to every photo, runs the filters and then shows the average scores as charts and a table. It uses the same random seeds as main.py, so the numbers match the team's experiments.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ FIND BEST SETTING -->
+<section id="tab-sweep" class="panel">
+  <aside class="controls">
+    <div class="card step">
+      <div class="step-title"><span class="num">1</span> Photo</div>
+      <select id="sweep-dataset" data-tip="Which photo collection to pick from."><option>BSD68</option><option>Set12</option></select>
+      <select id="sweep-image" data-tip="The photo to test on."></select>
+      <img id="sweep-preview" class="sweep-preview" alt="Chosen photo">
+    </div>
+    <div class="card step">
+      <div class="step-title"><span class="num">2</span> Noise</div>
+      <div class="chips" id="sweep-noise"></div>
+      <label class="label">Strength</label>
+      <div class="segmented small" id="sweep-level">
+        <button class="seg" data-value="Low" data-tip="A little noise.">Low</button>
+        <button class="seg active" data-value="Medium" data-tip="A medium amount of noise.">Medium</button>
+        <button class="seg" data-value="High" data-tip="A lot of noise.">High</button>
+      </div>
+      <label class="label">Random seed
+        <input type="number" id="sweep-seed" value="42" min="0" class="inline-input" data-tip="The same seed always makes exactly the same noise.">
+      </label>
+    </div>
+    <div class="card step">
+      <div class="step-title"><span class="num">3</span> Filter and setting</div>
+      <div class="chips" id="sweep-filter"></div>
+      <label class="label">Setting to test</label>
+      <select id="sweep-param" data-tip="This setting is tried at many values; all other settings stay at their recommended values."></select>
+    </div>
+    <button class="primary" id="run-sweep" data-tip="Clean the same noisy photo once for every value and show which value scores best.">Find the best value</button>
+  </aside>
+  <div class="results" id="sweep-results">
+    <div class="empty">
+      <div class="empty-icon">🎚️</div>
+      <h2>Which setting works best?</h2>
+      <p>Pick a photo, a noise and a filter setting (for example the NLM strength h). The website cleans the same noisy photo with many values of that setting and draws a chart, so you can see exactly where the score is highest.</p>
     </div>
   </div>
 </section>

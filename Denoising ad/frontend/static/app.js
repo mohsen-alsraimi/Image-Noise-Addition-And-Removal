@@ -77,6 +77,16 @@ function toast(message) {
   setTimeout(() => t.classList.add("hidden"), 4500);
 }
 
+// ------------------------------------------------------------------ number and download helpers
+// PSNR is "∞" when the result is exactly the clean photo (no error at all).
+const psnrText = (v) => (v === null || v === undefined ? "∞" : v);
+const psnrSort = (r) => (r.psnr === null ? Infinity : r.psnr);
+function download(name, content, type) {
+  const url = content.startsWith("data:") ? content : URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const csvLine = (cells) => cells.map((c) => (typeof c === "string" && /[",\n]/.test(c) ? `"${c.replaceAll('"', '""')}"` : c)).join(",");
+
 // ------------------------------------------------------------------ small helpers
 function segmented(id, onChange) {
   const box = $(id);
@@ -252,20 +262,22 @@ $("run-single").addEventListener("click", async () => {
 
 function renderOne(data) {
   const box = $("single-results");
-  const ranked = [...data.filters].sort((a, b) => b.psnr - a.psnr);
+  const ranked = [...data.filters].sort((a, b) => psnrSort(b) - psnrSort(a));
   const best = ranked[0];
   const fastest = [...data.filters].sort((a, b) => a.time_ms - b.time_ms)[0];
-  const gain = (best.psnr - data.noisy_psnr).toFixed(2);
+  const gain = best.psnr === null ? "∞" : (best.psnr - data.noisy_psnr).toFixed(2);
   const levelText = data.level === "Custom" ? `custom ${data.value}` : `${data.level.toLowerCase()} (${data.value})`;
+  const st = data.stats, info = data.run_info;
   box.innerHTML = `
     <div class="summary">
       <div class="stat" data-tip="How damaged the photo is before cleaning. Lower PSNR = more noise."><div class="k">Noisy photo</div>
-        <div class="v">${data.noisy_psnr} dB</div><div class="s">SSIM ${data.noisy_ssim} · ${data.noise} noise, ${levelText}</div></div>
+        <div class="v">${psnrText(data.noisy_psnr)} dB</div><div class="s">SSIM ${data.noisy_ssim} · ${data.noise} noise, ${levelText}</div></div>
       <div class="stat best" data-tip="The filter whose result is closest to the clean photo (highest PSNR)."><div class="k">Best filter</div>
-        <div class="v">${short(best.filter)}</div><div class="s">${best.psnr} dB · <span class="gain ${gain >= 0 ? "up" : "down"}">${gain >= 0 ? "+" : ""}${gain} dB</span> better than noisy</div></div>
+        <div class="v">${short(best.filter)}</div><div class="s">${psnrText(best.psnr)} dB · <span class="gain up">+${gain} dB</span> better than noisy</div></div>
       <div class="stat" data-tip="The filter that finished the job in the shortest time."><div class="k">Fastest filter</div>
         <div class="v">${short(fastest.filter)}</div><div class="s">${fastest.time_ms} ms</div></div>
-      <div class="stat" data-tip="The photo that was used."><div class="k">Photo</div><div class="v" style="font-size:16px">${data.label}</div><div class="s">${data.size} pixels</div></div>
+      <div class="stat" data-tip="What the noise really did to the photo, measured on every pixel."><div class="k">What the noise did</div>
+        <div class="v">${(st.changed_share * 100).toFixed(1)}%</div><div class="s">of pixels changed · measured σ ≈ ${st.measured_sigma} grey levels</div></div>
     </div>
     <div class="section-title">Pictures <span class="small-note">— click any cleaned photo to compare it closely</span></div>
     <div class="grid" id="tiles"></div>
@@ -273,7 +285,19 @@ function renderOne(data) {
     <div class="charts">
       <div class="chart-card"><h4 data-tip="PSNR: how close the pixel values are to the clean photo. Higher is better.">PSNR (dB) — higher is better</h4><canvas id="one-psnr"></canvas></div>
       <div class="chart-card"><h4 data-tip="SSIM: how similar the shapes and textures look, from 0 to 1. Higher is better.">SSIM (0–1) — higher is better</h4><canvas id="one-ssim"></canvas></div>
-    </div>`;
+    </div>
+    <div class="table-wrap" style="margin-top:14px"><table class="scores" id="one-table"></table></div>
+    <div class="note-box" data-tip="Things to keep in mind so the numbers are read correctly.">
+      <b>How to read these numbers</b>
+      <ul>
+        <li>All scores compare with the clean photo at full size (the pictures on screen may be shrunk, the scores are not).</li>
+        <li>MSE is the average squared pixel error (0–1 scale); PSNR is the same error on a log scale; SSIM looks at structure.</li>
+        <li>${info.image_source === "upload" ? "Your uploaded photo is used as the “clean” reference, so any grain it already had counts as correct." : "Dataset photos are treated as perfectly clean."}${info.image_note ? " It was " + info.image_note + " to stay fast." : ""}</li>
+        <li>This is one photo and one random seed. For a fair ranking, use “Whole dataset” with repeats.</li>
+      </ul>
+    </div>
+    <div class="section-title">Reproduce this result</div>
+    <div class="repro" id="repro"></div>`;
 
   const tiles = $("tiles");
   const addTile = (title, image, lines, badge, onClick, tip) => {
@@ -284,18 +308,51 @@ function renderOne(data) {
     if (onClick) tile.addEventListener("click", onClick);
     tiles.appendChild(tile);
   };
-  addTile("Original (clean)", data.original, `<div class="metrics">The photo before any noise</div>`, `<span class="badge grey">Reference</span>`);
-  addTile(`Noisy (${data.noise})`, data.noisy, `<div class="metrics">PSNR <b>${data.noisy_psnr} dB</b></div><div class="metrics">SSIM <b>${data.noisy_ssim}</b></div>`, `<span class="badge grey">Before cleaning</span>`);
+  addTile("Original (clean)", data.original, `<div class="metrics">The photo before any noise</div><div class="params">fingerprint ${info.image_fingerprint}</div>`, `<span class="badge grey">Reference</span>`);
+  addTile(`Noisy (${data.noise})`, data.noisy, `<div class="metrics">PSNR <b>${psnrText(data.noisy_psnr)} dB</b> · SSIM <b>${data.noisy_ssim}</b></div>
+    <div class="metrics">MSE <b>${data.noisy_mse}</b></div><div class="params">fingerprint ${info.noisy_fingerprint}</div>`, `<span class="badge grey">Before cleaning</span>`);
   ranked.forEach((row, i) => {
-    const diff = (row.psnr - data.noisy_psnr).toFixed(2);
+    const diff = row.psnr === null ? "∞" : (row.psnr - data.noisy_psnr).toFixed(2);
     const params = Object.entries(row.params).map(([k, v]) => `${k} ${v === null ? "auto" : v}`).join(", ");
     addTile(row.filter, row.image,
-      `<div class="metrics">PSNR <b>${row.psnr} dB</b> <span class="gain ${diff >= 0 ? "up" : "down"}">(${diff >= 0 ? "+" : ""}${diff})</span></div>
-       <div class="metrics">SSIM <b>${row.ssim}</b> · ${row.time_ms} ms</div>
+      `<div class="metrics">PSNR <b>${psnrText(row.psnr)} dB</b> <span class="gain ${diff === "∞" || diff >= 0 ? "up" : "down"}">(${diff === "∞" || diff >= 0 ? "+" : ""}${diff})</span></div>
+       <div class="metrics">SSIM <b>${row.ssim}</b> · MSE <b>${row.mse}</b> · ${row.time_ms} ms</div>
        <div class="params">${params || "default settings"}</div>`,
       (i === 0 ? `<span class="badge">★ Best</span>` : "") + `<span class="badge rank">#${i + 1}</span>`,
       () => openCompare(data, row), FILTER_INFO[row.filter].tip + " Click to compare closely.");
   });
+
+  // exact numbers table
+  $("one-table").innerHTML = `<tr><th>Image</th><th data-tip="Higher is better.">PSNR (dB)</th><th data-tip="Higher is better.">SSIM</th><th data-tip="Average squared pixel error. Lower is better.">MSE</th><th>Time (ms)</th><th>Settings used</th></tr>
+    <tr><td>Noisy (before cleaning)</td><td>${psnrText(data.noisy_psnr)}</td><td>${data.noisy_ssim}</td><td>${data.noisy_mse}</td><td>–</td><td>–</td></tr>` +
+    ranked.map((r, i) => `<tr><td>${i === 0 ? "★ " : ""}${r.filter}</td><td class="${i === 0 ? "best" : ""}">${psnrText(r.psnr)}</td><td>${r.ssim}</td><td>${r.mse}</td><td>${r.time_ms}</td>
+      <td style="text-align:left">${Object.entries(r.params).map(([k, v]) => `${k}=${v === null ? "auto" : v}`).join(", ") || "default"}</td></tr>`).join("");
+
+  // reproducibility panel
+  const v = info.versions;
+  $("repro").innerHTML = `
+    <div class="repro-grid">
+      <div><span>Photo</span><b>${info.image}</b> (${info.image_size})</div>
+      <div><span>Noise</span><b>${data.noise}</b>, ${data.level} = ${data.value}</div>
+      <div><span>Random seed</span><b>${info.seed}</b></div>
+      <div><span>Filter settings</span><b>${{ tuned: "Recommended (best_parameters.json)", default: "Default (filter.py)", custom: "Custom" }[info.settings_mode]}</b></div>
+      <div><span>Clean / noisy fingerprint</span><b>${info.image_fingerprint}</b> / <b>${info.noisy_fingerprint}</b></div>
+      <div><span>Software</span>Python ${v.python} · NumPy ${v.numpy} · OpenCV ${v["opencv-python"]} · scikit-image ${v["scikit-image"]}</div>
+    </div>
+    <p class="small-note">Same photo + same noise + same seed + same settings = exactly the same pixels, so the same fingerprints and scores. A fingerprint is a short code made from every pixel; it is an ID, not a quality score.</p>
+    <div class="row-links" style="gap:10px;flex-wrap:wrap">
+      <button class="secondary" id="dl-json" data-tip="Save every setting of this run, so anyone can repeat it exactly.">⬇ Settings (JSON)</button>
+      <button class="secondary" id="dl-csv" data-tip="Save all scores of this run as a table you can open in Excel.">⬇ Scores (CSV)</button>
+      <button class="secondary" id="dl-noisy" data-tip="Save the noisy photo as a PNG file (lossless).">⬇ Noisy photo</button>
+      <button class="secondary" id="dl-best" data-tip="Save the best cleaned photo as a PNG file (lossless).">⬇ Best result</button>
+    </div>`;
+  const stamp = info.image.replace(/[^a-z0-9]+/gi, "_");
+  $("dl-json").onclick = () => download(`run_${stamp}.json`, JSON.stringify(info, null, 2), "application/json");
+  $("dl-csv").onclick = () => download(`scores_${stamp}.csv`, [csvLine(["Image", "Noise", "Level", "Noise_Value", "Seed", "Filter", "PSNR", "SSIM", "MSE", "Time_ms", "Settings"]),
+    csvLine([info.image, data.noise, data.level, data.value, info.seed, "Noisy (Baseline)", psnrText(data.noisy_psnr), data.noisy_ssim, data.noisy_mse, 0, ""]),
+    ...data.filters.map((r) => csvLine([info.image, data.noise, data.level, data.value, info.seed, r.filter, psnrText(r.psnr), r.ssim, r.mse, r.time_ms, JSON.stringify(r.params)]))].join("\n"), "text/csv");
+  $("dl-noisy").onclick = () => download(`noisy_${stamp}.png`, data.noisy);
+  $("dl-best").onclick = () => download(`best_${short(best.filter)}_${stamp}.png`, best.image);
 
   destroyCharts("one-");
   const labels = data.filters.map((f) => short(f.filter));
@@ -320,20 +377,26 @@ function renderAll(data) {
     <div class="segmented small" id="all-metric" style="max-width:320px">
       <button class="seg active" data-value="psnr" data-tip="Show PSNR in the table: pixel accuracy, higher is better.">PSNR (dB)</button>
       <button class="seg" data-value="ssim" data-tip="Show SSIM in the table: structure similarity, higher is better.">SSIM</button>
+      <button class="seg" data-value="mse" data-tip="Show MSE in the table: average squared pixel error, lower is better.">MSE</button>
     </div>
     <div class="table-wrap"><table class="scores" id="all-table"></table></div>
+    <div class="row-links" style="gap:10px;margin-top:8px"><button class="secondary" id="all-csv" data-tip="Save the whole table (PSNR, SSIM and MSE) as a CSV file.">⬇ Scores (CSV)</button>
+    <button class="secondary" id="all-json" data-tip="Save the settings of this run, so anyone can repeat it exactly.">⬇ Settings (JSON)</button></div>
     <p class="legend-note">The box marks the best filter in each row. Click a noisy picture to see it bigger.</p>
     <div class="section-title">PSNR at each strength</div>
     <div class="charts" id="all-charts"></div>`;
 
   const draw = (metric) => {
+    const val = (x) => (metric === "psnr" ? psnrSort(x) : x[metric]);
+    const shown = (x) => (metric === "psnr" ? psnrText(x.psnr) : x[metric]);
     let html = `<tr><th>Noise · strength</th><th>Noisy photo</th><th>Noisy score</th>${filters.map((f) => `<th data-tip="${FILTER_INFO[f].tip}">${short(f)}</th>`).join("")}</tr>`;
     data.table.forEach((row, index) => {
-      const values = row.filters.map((f) => f[metric]);
-      const best = Math.max(...values);
+      const values = row.filters.map(val);
+      const best = metric === "mse" ? Math.min(...values) : Math.max(...values);
+      const noisy = { psnr: row.noisy_psnr, ssim: row.noisy_ssim, mse: row.noisy_mse };
       html += `<tr><td><b>${row.noise}</b> · ${row.level}</td><td class="thumb"><img src="${row.noisy_image}" data-index="${index}" alt=""></td>
-        <td>${metric === "psnr" ? row.noisy_psnr : row.noisy_ssim}</td>
-        ${row.filters.map((f) => `<td class="${f[metric] === best ? "best" : ""}">${f[metric]}</td>`).join("")}</tr>`;
+        <td>${shown(noisy)}</td>
+        ${row.filters.map((f) => `<td class="${val(f) === best ? "best" : ""}">${shown(f)}</td>`).join("")}</tr>`;
     });
     $("all-table").innerHTML = html;
     $("all-table").querySelectorAll("img").forEach((img) => img.addEventListener("click", () => {
@@ -341,12 +404,17 @@ function renderAll(data) {
       openPicture(`${row.noise} noise · ${row.level}`, data.original, row.noisy_image, "Original", "Noisy");
     }));
   };
+  const stamp = data.label.replace(/[^a-z0-9]+/gi, "_");
+  $("all-csv").onclick = () => download(`all_noises_${stamp}.csv`, [csvLine(["Image", "Noise", "Level", "Noise_Value", "Seed", "Filter", "PSNR", "SSIM", "MSE", "Time_ms"]),
+    ...data.table.flatMap((row) => [csvLine([data.label, row.noise, row.level, row.value, data.run_info.seed, "Noisy (Baseline)", psnrText(row.noisy_psnr), row.noisy_ssim, row.noisy_mse, 0]),
+      ...row.filters.map((f) => csvLine([data.label, row.noise, row.level, row.value, data.run_info.seed, f.filter, psnrText(f.psnr), f.ssim, f.mse, f.time_ms]))])].join("\n"), "text/csv");
+  $("all-json").onclick = () => download(`run_${stamp}.json`, JSON.stringify(data.run_info, null, 2), "application/json");
   segmented("all-metric", draw);
   draw("psnr");
 
   // count which filter wins most often
   const wins = {};
-  data.table.forEach((row) => { const top = [...row.filters].sort((a, b) => b.psnr - a.psnr)[0]; wins[top.filter] = (wins[top.filter] || 0) + 1; });
+  data.table.forEach((row) => { const top = [...row.filters].sort((a, b) => psnrSort(b) - psnrSort(a))[0]; wins[top.filter] = (wins[top.filter] || 0) + 1; });
   const champion = Object.entries(wins).sort((a, b) => b[1] - a[1])[0];
   $("all-best").innerHTML = `<div class="k">Wins most often</div><div class="v">${short(champion[0])}</div><div class="s">best in ${champion[1]} of 12 cases (by PSNR)</div>`;
 
@@ -468,7 +536,7 @@ $("zoom-overview").addEventListener("click", (e) => {
 $("zoom-size").addEventListener("input", drawZoom);
 
 // ------------------------------------------------------------------ dashboard (whole dataset and saved runs)
-function renderDashboard(container, summary, { title, images, csvUrl, prefix }) {
+function renderDashboard(container, summary, { title, images, csvUrl, configUrl, savedTo, repeats = 1, prefix }) {
   const noises = CONFIG.noise_types.filter((n) => summary.some((r) => r.noise === n));
   const filters = CONFIG.filters.filter((f) => summary.some((r) => r.filter === f));
   const levels = LEVELS.filter((l) => summary.some((r) => r.level === l));
@@ -483,8 +551,11 @@ function renderDashboard(container, summary, { title, images, csvUrl, prefix }) 
 
   container.innerHTML = `
     <div class="summary">
-      <div class="stat"><div class="k">Experiment</div><div class="v" style="font-size:17px">${title}</div><div class="s">${images} photo(s) · averages over all photos</div></div>
-      ${csvUrl ? `<div class="stat"><div class="k">Raw numbers</div><div style="margin-top:10px"><a class="secondary" href="${csvUrl}" data-tip="Download every single measurement as a CSV file you can open in Excel.">⬇ Download CSV</a></div></div>` : ""}
+      <div class="stat"><div class="k">Experiment</div><div class="v" style="font-size:17px">${title}</div><div class="s">${images} photo(s)${repeats > 1 ? ` × ${repeats} seeds` : ""} · averages over all runs</div></div>
+      ${csvUrl || configUrl ? `<div class="stat"><div class="k">Files</div><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        ${csvUrl ? `<a class="secondary" href="${csvUrl}" data-tip="Download every single measurement as a CSV file you can open in Excel.">⬇ Results (CSV)</a>` : ""}
+        ${configUrl ? `<a class="secondary" href="${configUrl}" data-tip="Download the exact settings (photos, noise values, seeds, software versions) so the run can be repeated.">⬇ Settings (JSON)</a>` : ""}</div></div>` : ""}
+      ${savedTo ? `<div class="stat best"><div class="k">Saved</div><div class="v" style="font-size:18px">results/${savedTo}</div><div class="s">also listed under “Saved results”</div></div>` : ""}
     </div>
     <div class="section-title">Best filter for each noise</div>
     <div class="summary">${bestCards}</div>
@@ -492,11 +563,12 @@ function renderDashboard(container, summary, { title, images, csvUrl, prefix }) 
     <div class="segmented small" id="${prefix}metric" style="max-width:320px">
       <button class="seg active" data-value="psnr" data-tip="Pixel accuracy in dB. Higher is better.">PSNR</button>
       <button class="seg" data-value="ssim" data-tip="Structure similarity from 0 to 1. Higher is better.">SSIM</button>
+      ${summary.some((r) => r.mse !== null && r.mse !== undefined) ? `<button class="seg" data-value="mse" data-tip="Average squared pixel error. Lower is better.">MSE</button>` : ""}
     </div>
     <div class="charts" id="${prefix}charts"></div>
     <div class="section-title">All average scores</div>
     <div class="table-wrap"><table class="scores" id="${prefix}table"></table></div>
-    <p class="legend-note">The box marks the best filter in each row.</p>
+    <p class="legend-note">The box marks the best filter in each row. “± x” is the standard deviation: how much the score changes from photo to photo (and seed to seed). If two filters are closer than this, the difference may not be meaningful.</p>
     <div class="section-title">Speed</div>
     <div class="chart-card"><h4 data-tip="Average time one filter needs for one photo. Lower is faster.">Average time per photo (milliseconds, log scale)</h4><canvas id="${prefix}time"></canvas></div>`;
 
@@ -516,11 +588,16 @@ function renderDashboard(container, summary, { title, images, csvUrl, prefix }) 
         options: { plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } } } });
     });
     let html = `<tr><th>Noise · strength</th><th>Noisy</th>${filters.map((f) => `<th data-tip="${FILTER_INFO[f].tip}">${short(f)}</th>`).join("")}</tr>`;
+    const cell = (r) => {
+      if (!r) return "–";
+      const spread = metric === "psnr" ? r.psnr_std : metric === "ssim" ? r.ssim_std : null;
+      return `${metric === "psnr" ? psnrText(r.psnr) : r[metric]}${spread ? `<span class="spread"> ±${spread}</span>` : ""}`;
+    };
     noises.forEach((noise) => levels.forEach((level) => {
-      const values = filters.map((f) => pick(noise, level, f)?.[metric]);
-      const best = Math.max(...values);
-      const base = pick(noise, level, "Noisy (Baseline)");
-      html += `<tr><td><b>${noise}</b> · ${level}</td><td>${base ? base[metric] : "–"}</td>${values.map((v) => `<td class="${v === best ? "best" : ""}">${v}</td>`).join("")}</tr>`;
+      const rows = filters.map((f) => pick(noise, level, f));
+      const values = rows.map((r) => (r ? (metric === "psnr" ? (r.psnr === null ? Infinity : r.psnr) : r[metric]) : NaN));
+      const best = metric === "mse" ? Math.min(...values) : Math.max(...values);
+      html += `<tr><td><b>${noise}</b> · ${level}</td><td>${cell(pick(noise, level, "Noisy (Baseline)"))}</td>${rows.map((r, i) => `<td class="${values[i] === best ? "best" : ""}">${cell(r)}</td>`).join("")}</tr>`;
     }));
     $(prefix + "table").innerHTML = html;
   };
@@ -550,11 +627,14 @@ function updateBatchCount(reset) {
   updateEstimate();
 }
 $("batch-count").addEventListener("input", () => updateBatchCount(false));
+$("batch-repeats").addEventListener("input", () => updateEstimate());
 
 function updateEstimate() {
   if (!batchFilters) return;
   const perCase = { "Gaussian Filter": 1, "Median Filter": 2, "Bilateral Filter": 8, "NLM Filter": 150, "Lee Filter": 3, "TV Filter": 35 };
-  const cases = +$("batch-count").value * batchNoises.get().length * batchLevels.get().length;
+  const repeats = +$("batch-repeats").value;
+  $("batch-repeats-label").textContent = repeats === 1 ? "1 (same seeds as main.py)" : `${repeats} different seeds`;
+  const cases = +$("batch-count").value * batchNoises.get().length * batchLevels.get().length * repeats;
   const ms = cases * (40 + batchFilters.get().reduce((s, f) => s + perCase[f], 0));
   const sec = Math.round(ms / 1000);
   $("batch-estimate").textContent = `${cases} noisy photos to clean. Rough time: ${sec < 60 ? sec + " seconds" : Math.round(sec / 60) + " minute(s)"}.`;
@@ -568,7 +648,8 @@ $("run-batch").addEventListener("click", async () => {
   }
   const total = CONFIG.datasets[getBatchDataset()].length;
   const body = { dataset: getBatchDataset(), count: +$("batch-count").value === total ? "all" : +$("batch-count").value,
-    noises: batchNoises.get(), levels: batchLevels.get(), filters: batchFilters.get(), mode: getBatchMode() };
+    noises: batchNoises.get(), levels: batchLevels.get(), filters: batchFilters.get(), mode: getBatchMode(),
+    repeats: +$("batch-repeats").value, save: $("batch-save").checked };
   const response = await fetch("/api/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await response.json();
   if (!response.ok) return toast(data.error);
@@ -596,7 +677,8 @@ async function pollBatch(body) {
   }
   const images = body.count === "all" ? CONFIG.datasets[body.dataset].length : body.count;
   renderDashboard($("batch-results"), data.summary, { title: `${body.dataset}, ${body.mode === "tuned" ? "recommended" : "default"} settings`,
-    images, csvUrl: `/api/batch/${job}/csv`, prefix: "b-" });
+    images, csvUrl: `/api/batch/${job}/csv`, configUrl: `/api/batch/${job}/config`, savedTo: data.saved_to, repeats: body.repeats, prefix: "b-" });
+  if (data.saved_to) refreshSavedList();
 }
 
 // ------------------------------------------------------------------ TAB 3: saved results
@@ -606,7 +688,8 @@ $("load-saved").addEventListener("click", async () => {
   loading($("saved-results"), `Opening ${name}…`);
   const data = await (await fetch(`/api/saved/${name}`)).json();
   if (data.error) return toast(data.error);
-  renderDashboard($("saved-results"), data.summary, { title: name, images: data.images, prefix: "s-" });
+  renderDashboard($("saved-results"), data.summary, { title: name, images: data.images,
+    csvUrl: `/results-file/${name}/experiment_results.csv`, configUrl: data.has_config ? `/results-file/${name}/run_config.json` : null, prefix: "s-" });
   if (data.pictures.length) {
     const block = document.createElement("div");
     block.innerHTML = `<div class="section-title">Comparison pictures saved by main.py</div><div class="pictures">${data.pictures.map((p) =>
@@ -615,6 +698,72 @@ $("load-saved").addEventListener("click", async () => {
     $("saved-results").appendChild(block);
   }
 });
+
+async function refreshSavedList() {
+  const cfg = await (await fetch("/api/config")).json();
+  CONFIG.results = cfg.results;
+  $("saved-select").innerHTML = CONFIG.results.length ? CONFIG.results.slice().reverse().map((r) => `<option>${r}</option>`).join("") : "<option value=''>No saved runs yet</option>";
+}
+
+// ------------------------------------------------------------------ TAB: find the best setting
+let sweepNoise, sweepFilter;
+const getSweepLevel = segmented("sweep-level");
+function fillSweepImages() {
+  const ds = $("sweep-dataset").value;
+  $("sweep-image").innerHTML = CONFIG.datasets[ds].map((n) => `<option>${n}</option>`).join("");
+  showSweepPreview();
+}
+function showSweepPreview() { $("sweep-preview").src = `/dataset/${$("sweep-dataset").value}/${$("sweep-image").value}`; }
+function fillSweepParams() {
+  const f = sweepFilter.get()[0];
+  $("sweep-param").innerHTML = CONFIG.filter_params[f].map((p) => `<option value="${p.name}">${p.label} (${p.min}–${p.max})</option>`).join("");
+}
+$("sweep-dataset").addEventListener("change", fillSweepImages);
+$("sweep-image").addEventListener("change", showSweepPreview);
+$("run-sweep").addEventListener("click", async () => {
+  const form = new FormData();
+  form.append("dataset", $("sweep-dataset").value); form.append("image", $("sweep-image").value);
+  form.append("noise", sweepNoise.get()[0]); form.append("level", getSweepLevel());
+  form.append("seed", $("sweep-seed").value || 42);
+  form.append("filter", sweepFilter.get()[0]); form.append("param", $("sweep-param").value);
+  const button = $("run-sweep"); button.disabled = true; button.textContent = "Testing…";
+  loading($("sweep-results"), "Trying every value on the same noisy photo…");
+  try {
+    const response = await fetch("/api/sweep", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Something went wrong.");
+    renderSweep(data);
+  } catch (error) {
+    $("sweep-results").innerHTML = `<div class="empty"><h2>Could not run</h2><p>${error.message}</p></div>`;
+  } finally { button.disabled = false; button.textContent = "Find the best value"; }
+});
+function renderSweep(d) {
+  const others = Object.entries(d.other_settings).map(([k, v]) => `${k} = ${v === null ? "auto" : v}`).join(", ") || "none";
+  $("sweep-results").innerHTML = `
+    <div class="summary">
+      <div class="stat best" data-tip="The value that gave the highest PSNR on this photo."><div class="k">Best ${d.param_label}</div>
+        <div class="v">${d.best.value}</div><div class="s">PSNR ${psnrText(d.best.psnr)} dB · SSIM ${d.best.ssim}</div></div>
+      <div class="stat"><div class="k">Noisy photo</div><div class="v">${psnrText(d.noisy_psnr)} dB</div><div class="s">${d.noise}, ${d.level} = ${d.noise_value} · seed ${d.seed}</div></div>
+      <div class="stat"><div class="k">Filter</div><div class="v" style="font-size:18px">${d.filter}</div><div class="s">other settings kept fixed: ${others}</div></div>
+    </div>
+    <div class="charts">
+      <div class="chart-card"><h4 data-tip="Each point is the same noisy photo cleaned with a different value of this setting.">PSNR and SSIM for each value of “${d.param_label}”</h4><canvas id="sweep-chart"></canvas></div>
+      <div class="chart-card"><h4>Noisy vs best value</h4><div style="display:flex;gap:8px"><img src="${d.noisy}" style="width:50%;border-radius:8px" alt="Noisy"><img src="${d.best_image}" style="width:50%;border-radius:8px" alt="Best"></div>
+        <p class="small-note">Left: noisy. Right: ${d.filter} with ${d.param_label} = ${d.best.value}.</p></div>
+    </div>
+    <div class="table-wrap" style="margin-top:14px"><table class="scores">
+      <tr><th>${d.param_label}</th><th>PSNR (dB)</th><th>SSIM</th><th>MSE</th><th>Time (ms)</th></tr>
+      ${d.rows.map((r) => `<tr><td>${r.value}</td><td class="${r.value === d.best.value ? "best" : ""}">${psnrText(r.psnr)}</td><td>${r.ssim}</td><td>${r.mse}</td><td>${r.time_ms}</td></tr>`).join("")}
+    </table></div>
+    <p class="legend-note">This is a test on one photo. A value that is best here may not be best for every photo – the team chose its recommended settings on all 12 Set12 photos.</p>`;
+  destroyCharts("sweep");
+  charts["sweep"] = new Chart($("sweep-chart"), { type: "line",
+    data: { labels: d.rows.map((r) => r.value), datasets: [
+      { label: "PSNR (dB)", data: d.rows.map((r) => r.psnr), borderColor: "#4f46e5", backgroundColor: "#4f46e5", yAxisID: "y", tension: .25 },
+      { label: "SSIM", data: d.rows.map((r) => r.ssim), borderColor: "#12946b", backgroundColor: "#12946b", yAxisID: "y1", tension: .25 }] },
+    options: { plugins: { legend: { position: "bottom" } }, scales: { y: { position: "left", title: { display: true, text: "PSNR (dB)" } },
+      y1: { position: "right", min: 0, max: 1, grid: { drawOnChartArea: false }, title: { display: true, text: "SSIM" } } } } });
+}
 
 // ------------------------------------------------------------------ TAB 4: how it works
 function buildLearn() {
@@ -631,6 +780,8 @@ function buildLearn() {
   $("learn-scores").innerHTML = `
     <div class="learn-card purple"><h3>PSNR (dB)</h3><p>Checks how close every pixel is to the clean photo. First we take the average squared difference (MSE), then put it on a log scale.</p>
       <div class="formula">PSNR = 10 · log₁₀(1 / MSE)</div><p class="small-note">Higher is better. +10 dB means 10 times less error.</p></div>
+    <div class="learn-card purple"><h3>MSE</h3><p>The plain error: for every pixel take (clean − cleaned), square it, and average over the whole photo. 0 means identical.</p>
+      <div class="formula">MSE = average of (clean − result)²</div><p class="small-note">Lower is better. PSNR is made from MSE.</p></div>
     <div class="learn-card purple"><h3>SSIM (0 to 1)</h3><p>Checks if the shapes, edges and textures look the same, a bit like a human would. 1 means identical.</p>
       <div class="formula">compares brightness, contrast and structure</div><p class="small-note">Higher is better.</p></div>
     <div class="learn-card purple"><h3>Time</h3><p>How long the filter needs for one photo. A great filter that is very slow may not be useful for video or big photos.</p>
@@ -651,11 +802,16 @@ function buildLearn() {
   batchLevels = chipGroup("batch-levels", LEVELS, { tips: { Low: "Include a little noise.", Medium: "Include a medium amount of noise.", High: "Include a lot of noise." }, onChange: updateEstimate });
   batchFilters = chipGroup("batch-filters", CONFIG.filters, { tips: filterTips, labels: filterLabels, onChange: updateEstimate });
 
+  sweepNoise = chipGroup("sweep-noise", CONFIG.noise_types, { multi: false, on: ["Gaussian"], tips: noiseTips, labels: noiseLabels });
+  sweepFilter = chipGroup("sweep-filter", CONFIG.filters, { multi: false, on: ["NLM Filter"], tips: filterTips, labels: filterLabels, onChange: fillSweepParams });
+  $("batch-repeats").max = CONFIG.max_repeats;
   if (!CONFIG.tuned_available) toast("best_parameters.json was not found, so 'Recommended' uses the default settings.");
   $("saved-select").innerHTML = CONFIG.results.length ? CONFIG.results.slice().reverse().map((r) => `<option>${r}</option>`).join("") : "<option value=''>No saved runs yet</option>";
 
   showThumbs();
   updateLevelNote();
+  fillSweepImages();
+  fillSweepParams();
   updateBatchCount(true);
   buildLearn();
 })();
