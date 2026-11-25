@@ -3,7 +3,7 @@ Tests for one-image experiments started from the frontend.
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_single_image_job.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_single_image_job.py" -v
 
 The real-job tests use real project images but save results to a temporary
 folder. Page tests replace job starting with a mock, so no experiment runs.

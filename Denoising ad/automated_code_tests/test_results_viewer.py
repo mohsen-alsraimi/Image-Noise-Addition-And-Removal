@@ -3,7 +3,7 @@ Focused tests for the read-only Results Viewer.
 
 Run from the "Denoising ad" folder:
 
-    python -B -m unittest discover -s tests -p "test_results_viewer.py" -v
+    python -B -m unittest discover -s automated_code_tests -p "test_results_viewer.py" -v
 
 These tests need pandas and streamlit. They read saved results and only
 write small practice files to a temporary folder.

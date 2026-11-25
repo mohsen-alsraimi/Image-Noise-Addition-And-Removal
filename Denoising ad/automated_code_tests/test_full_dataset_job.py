@@ -3,7 +3,7 @@ Tests for full-dataset experiments: running every image in a dataset.
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_full_dataset_job.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_full_dataset_job.py" -v
 
 Real-job tests use a temporary dataset with two real BSD68 images and save
 to a temporary folder. Page tests replace job starting with a mock.

@@ -3,7 +3,7 @@ Focused tests for the full experiment: every image under all 12 noise conditions
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_full_matrix.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_full_matrix.py" -v
 
 Real-job tests use two real BSD68 images in a temporary folder.
 Page tests replace job starting with a mock.

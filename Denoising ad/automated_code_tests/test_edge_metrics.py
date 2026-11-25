@@ -3,7 +3,7 @@ Tests for the edge-preservation scores (Edge Precision, Recall, F1).
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_edge_metrics.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_edge_metrics.py" -v
 
 Real-job tests use one or two real BSD68 images in a temporary folder.
 """

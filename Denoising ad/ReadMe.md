@@ -8,8 +8,8 @@ py -m venv .venv
 - docs/FRONTEND_USER_GUIDE.md: install, launch and use the Image Noise Lab website.
 - docs/PROJECT_STRUCTURE.md: which files are the frontend, the science, the runner,
   the tuning scripts, the datasets and the generated results.
-- tests/README.md: the automated tests and how to run them:
-  .\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+- automated_code_tests/: automated tests that check the code works; run them with:
+  .\.venv\Scripts\python.exe -B -m unittest discover -s automated_code_tests -v
 
 ## Frontend
 

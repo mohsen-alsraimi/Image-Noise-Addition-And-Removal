@@ -4,7 +4,7 @@ Focused tests for run_config.json.
 Run from the "Denoising ad" folder, using an environment that has the
 packages in requirements.txt:
 
-    python -B -m unittest discover -s tests -p "test_run_metadata.py" -v
+    python -B -m unittest discover -s automated_code_tests -p "test_run_metadata.py" -v
 
 RealRunTests runs the real runner on two tiny synthetic images.
 The Git, library, and save-failure tests use mocks.

@@ -3,7 +3,7 @@ Focused tests for the Lee filter.
 
 Run from the "Denoising ad" folder:
 
-    python -B -m unittest discover -s tests -v
+    python -B -m unittest discover -s automated_code_tests -v
 
 The -B flag stops Python from rewriting the .pyc files tracked in this
 repository. These tests use small synthetic images and write no files.

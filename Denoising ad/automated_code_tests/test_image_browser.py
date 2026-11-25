@@ -4,7 +4,7 @@ runs, and choosing an image in Results.
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_image_browser.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_image_browser.py" -v
 
 The real-job test uses two real BSD68 images in a temporary folder.
 """

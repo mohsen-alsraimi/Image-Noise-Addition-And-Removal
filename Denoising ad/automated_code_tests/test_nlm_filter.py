@@ -3,7 +3,7 @@ Focused tests for NLM parameter handling.
 
 Run from the "Denoising ad" folder:
 
-    python -B -m unittest discover -s tests -p "test_nlm_filter.py" -v
+    python -B -m unittest discover -s automated_code_tests -p "test_nlm_filter.py" -v
 
 Most tests replace the scikit-image NLM call with a mock, because they
 check which parameters reach it. RealLibraryTests runs real NLM and is

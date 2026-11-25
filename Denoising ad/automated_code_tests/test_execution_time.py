@@ -4,7 +4,7 @@ Focused tests for execution-time measurement in main.run_experiments.
 Run from the "Denoising ad" folder, using an environment that has the
 packages in requirements.txt:
 
-    python -B -m unittest discover -s tests -p "test_execution_time.py" -v
+    python -B -m unittest discover -s automated_code_tests -p "test_execution_time.py" -v
 
 A fake clock and fake filters make the timing boundaries exact, so the
 results do not depend on computer speed. Output files go to a temporary

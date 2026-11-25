@@ -17,3 +17,14 @@ __pycache__/
 
 # Temporary files
 *.tmp
+
+# Personal project report
+/Denoising ad/report/
+
+# Private local files (not shared)
+/Denoising ad/research_runner.py
+/Denoising ad/research_summary.py
+/Denoising ad/frontend/research_view.py
+/Denoising ad/frontend/research_charts.py
+/Denoising ad/automated_code_tests/test_research_*.py
+/Denoising ad/results/research_plans/

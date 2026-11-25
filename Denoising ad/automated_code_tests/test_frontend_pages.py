@@ -4,7 +4,7 @@ simplified presets and the Results layout.
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_frontend_pages.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_frontend_pages.py" -v
 
 Starting jobs is mocked; saved results are only read.
 """

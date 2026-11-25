@@ -3,7 +3,7 @@ Tests for the Urban100_HR and original_png datasets: loading, choosing, and show
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_datasets.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_datasets.py" -v
 
 Real-job tests copy two images of a dataset into a temporary folder and run
 only the Median filter, so they stay small.

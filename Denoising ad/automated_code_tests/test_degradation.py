@@ -3,7 +3,7 @@ Tests for JPEG compression and glare experiments: functions, jobs, and pages.
 
 Run from the "Denoising ad" folder:
 
-    .venv\\Scripts\\python.exe -B -m unittest discover -s tests -p "test_degradation.py" -v
+    .venv\\Scripts\\python.exe -B -m unittest discover -s automated_code_tests -p "test_degradation.py" -v
 
 The real-job test runs all 6 degradation conditions on two BSD68 images with
 two fast filters, in a temporary folder.
