@@ -238,7 +238,20 @@ class JobRuleTests(unittest.TestCase):
 class OlderResultsTests(unittest.TestCase):
     def test_saved_runs_still_open(self):
         runs = helpers.find_saved_runs()
-        self.assertEqual(len(helpers.comparison_images(runs["result17"], "result17", "Gaussian", "High")), 68)
+
+
+        pictures = helpers.comparison_images(
+            runs["result17"], "result17", "Gaussian", "High"
+        )
+
+        # The CLI experiment processes 68 images but saves
+        # one example comparison picture per noise condition.
+        self.assertEqual(
+            runs["result17"]["required_to_rerun"]["dataset"]["images_processed"],
+            68
+        )
+        self.assertEqual(list(pictures), ["test001.png"])
+        self.assertTrue(pictures["test001.png"].is_file())
         st.cache_data.clear()
         for run in ("result17", "result16", "result13"):
             with self.subTest(run=run):
